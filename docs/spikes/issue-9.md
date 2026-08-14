@@ -72,7 +72,8 @@ the measurement and the inversion.
 - `scripts/dev/level_recovery.lua` — the inversion, the reference-tone synthesizer, and the in-Reaper validation procedure. Development only, never shipped (per the ReaPack packaging rule).
 - `tests/lua/test_level_recovery.lua` — headless proof of the formula, registered in `tests/lua/run.lua`.
 - `docs/spikes/issue-9.md` — this document.
-- Version floor corrected from 6.37 to 6.44 in ADR-0004, ADR-0003, and README.
+- Version floor corrected from 6.37 to 6.44 in ADR-0004, ADR-0003, README, `AGENTS.md`, and the CI workflow's ADR-0003 rationale comment.
+- `design.md`'s open question "What is the exact minimum Reaper version…" is closed with the answer and a citation back to this document.
 
 ## What remains (blocked on a machine with Reaper)
 
