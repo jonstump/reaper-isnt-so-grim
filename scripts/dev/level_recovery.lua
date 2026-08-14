@@ -1,3 +1,7 @@
+-- Governing: ADR-0004 (measurement by inverting CalculateNormalization's gain factor)
+-- Governing: SPEC-0001 REQ "Measurement Validation"
+-- Governing: SPEC-0001 REQ "Measurement Source and Version Floor"
+--
 -- Spike 9: level recovery by inversion. Development only; not shipped.
 --
 -- Reaper's CalculateNormalization returns the linear gain factor that would
@@ -19,13 +23,24 @@
 
 local M = {}
 
+-- WDL's VAL2DB/DB2VAL pair (db2val.h), which every figure in this module routes
+-- through. Named rather than inlined at each use so the one piece of arithmetic
+-- the whole spike turns on is written down exactly once.
+local function val2db(ratio)
+  return 20 * math.log(ratio) / math.log(10)
+end
+
+local function db2val(db)
+  return 10 ^ (db / 20)
+end
+
 -- Recover a level in dBFS from a CalculateNormalization gain factor.
 -- @param gain       number  linear gain factor returned by Reaper (double)
 -- @param targetDb   number  the normalizeTarget the factor was computed for,
 --                           in dBFS (modes 1 RMS, 2 peak, 3 true peak)
 -- @return number measured level in dBFS
 function M.recover_level(gain, targetDb)
-  return targetDb - 20 * math.log(gain) / math.log(10)
+  return targetDb - val2db(gain)
 end
 
 -- Reference signals of known level.
@@ -37,7 +52,7 @@ end
 -- @param sr     number  sample rate
 -- @return table of samples in [-1, 1], each shifted/scaled so RMS equals rmsDb
 function M.sine(rmsDb, n, sr)
-  local amplitude = 10 ^ (rmsDb / 20) * math.sqrt(2) -- sine rms = amp/sqrt(2)
+  local amplitude = db2val(rmsDb) * math.sqrt(2) -- sine rms = amp/sqrt(2)
   local samples = {}
   for i = 0, n - 1 do
     samples[i + 1] = amplitude * math.sin(2 * math.pi * 440 * i / sr)
@@ -52,14 +67,14 @@ function M.sample_peak(samples)
     local a = math.abs(s)
     if a > m then m = a end
   end
-  return 20 * math.log(m) / math.log(10)
+  return val2db(m)
 end
 
 -- RMS level of a sample buffer in dBFS.
 function M.rms(samples)
   local sum = 0
   for _, s in ipairs(samples) do sum = sum + s * s end
-  return 10 * math.log(sum / #samples) / math.log(10)
+  return val2db(math.sqrt(sum / #samples))
 end
 
 -- Inverse of Reaper's normalization: given a known level and a target, the
@@ -69,11 +84,13 @@ end
 -- @param targetDb  number  the target normalization was computed for
 -- @return number expected linear gain factor
 function M.expected_gain(levelDb, targetDb)
-  return 10 ^ ((targetDb - levelDb) / 20)
+  return db2val(targetDb - levelDb)
 end
 
+-- Exposed for tests.
 M._internal = {
-  db_from_ratio = function(x) return 20 * math.log(x) / math.log(10) end,
+  val2db = val2db,
+  db2val = db2val,
 }
 
 return M

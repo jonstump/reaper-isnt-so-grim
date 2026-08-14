@@ -32,8 +32,18 @@ measured_level_dBFS = target_dBFS − 20 · log10(gain_factor)
 Because the factor is what-remains-to-be-applied: a factor > 1 (boost needed)
 means the source is quieter than the target, so the measured level is below the
 target; a factor < 1 (cut needed) means the opposite. This is the formula
-pinned by `tests/lua/test_level_recovery.lua` (113 tests pass, including 10 new
-ones), and it is the one the implementation must cite.
+pinned by `tests/lua/test_level_recovery.lua` (121 tests pass, of which 20 are
+new), and it is the one the implementation must cite.
+
+The load-bearing case is `Inversion recovers a reference tone's known level`: it
+synthesizes a tone at a known level, derives the normalization gain *numerically*
+by searching for the scalar that lands the buffer's RMS on the target, then
+inverts that gain and must return to the known level. Because it never uses
+`expected_gain` — `recover_level`'s closed-form inverse — to produce the gain it
+inverts, it is the case that would actually fail if the formula were wrong.
+Flipping the sign in `recover_level` makes it report −26 dBFS for a −20 dBFS
+tone. The remaining cases invert a gain from `expected_gain` and so can only
+catch a slip introduced on one side of the pair.
 
 The inverse is equally useful for validation:
 
