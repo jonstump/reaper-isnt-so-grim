@@ -38,7 +38,7 @@ That leaves this decision without a forcing function, which is the best possible
 
 Chosen because nothing has demanded more, and the moment to set a ceiling is before something does. Concretely:
 
-* **Permitted:** stock Reaper (6.37 or newer, per ADR-0004's use of `CalculateNormalization`), its bundled ReaPlugs and JSFX, its native actions, `gfx`, and ReaPack as the script delivery channel.
+* **Permitted:** stock Reaper (6.44 or newer, per ADR-0004's use of `CalculateNormalization`, which first appears in v6.44), its bundled ReaPlugs and JSFX, its native actions, `gfx`, and ReaPack as the script delivery channel.
 * **Not permitted without a new ADR:** SWS, ReaImGui, js_ReaScriptAPI, third-party themes, third-party plugins of any kind.
 
 Adding one later is not forbidden — it costs one ADR. That is deliberately cheap, because the goal is not to prevent dependencies but to prevent *unargued* ones. A decision that has to be written down is a decision someone has weighed.
@@ -71,7 +71,7 @@ Its flow requires driving ReaFir into subtract mode, capturing a noise profile f
 * **Bad, because SWS is genuinely useful and this refuses it pre-emptively.** If a Phase 3 feature wants something SWS provides, the options are reimplement, redesign, or write the ADR — and the first of those is the tempting one, which is how a project ends up maintaining a worse copy of a well-maintained library. The ADR route must stay the obvious choice.
 * Bad, because it locks in `gfx` for UI work indefinitely. ADR-0004 already accepted this for ACX Check; this decision extends that cost to every future interface the kit grows.
 * Bad, because the noise-reduction risk above is real and unresolved. The policy may be contradicted by the second feature we build, which is an uncomfortable place for a standing rule to sit.
-* Neutral, because the Reaper 6.37 floor is now a documented requirement rather than an implicit one. It costs nothing for a new install and should appear in the README.
+* Neutral, because the Reaper 6.44 floor is now a documented requirement rather than an implicit one. It costs nothing for a new install and should appear in the README.
 
 ### Confirmation
 
@@ -106,7 +106,7 @@ Its flow requires driving ReaFir into subtract mode, capturing a noise profile f
 ```mermaid
 graph TD
     subgraph His["His machine — STRICT ceiling"]
-        REAPER["Stock Reaper 6.37+"]
+        REAPER["Stock Reaper 6.44+"]
         PLUGS["Bundled ReaPlugs + JSFX<br/>ReaFir, ReaEQ, ReaComp, ReaLimit"]
         NATIVE["Native actions + gfx<br/>Dynamic Split, render normalization,<br/>CalculateNormalization"]
         RPK["ReaPack — committed by ADR-0001"]
