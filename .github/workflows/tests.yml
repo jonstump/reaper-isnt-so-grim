@@ -1,0 +1,40 @@
+# Governing: ADR-0003 (development tooling is unconstrained, but a development
+# dependency may never be imported by shipped code)
+#
+# Runs the plain-Lua test suite. The suite itself has no dependencies, so this
+# job installs nothing but an interpreter and calls the runner — tests/lua/run.lua
+# exits non-zero when any assertion fails.
+#
+# The matrix covers Lua 5.3 and 5.4 because ADR-0003 sets the runtime floor at
+# Reaper 6.37 and the embedded ReaScript Lua version changed across the 6.x/7.x
+# line. Passing on both means the shipped scripts do not depend on which one a
+# given supported Reaper happens to embed.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lua:
+    name: Lua ${{ matrix.lua }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lua: ["5.3", "5.4"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua ${{ matrix.lua }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lua${{ matrix.lua }}
+
+      - name: Run test suite
+        run: lua${{ matrix.lua }} tests/lua/run.lua
