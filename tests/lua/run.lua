@@ -59,6 +59,8 @@ local suites = {
   "tests.lua.test_evaluate",
   "tests.lua.test_report",
   "tests.lua.test_level_recovery",
+  "tests.lua.test_measure",
+  "tests.lua.test_error",
 }
 for _, s in ipairs(suites) do
   require(s)
