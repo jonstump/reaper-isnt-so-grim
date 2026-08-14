@@ -1,7 +1,8 @@
 -- Governing: SPEC-0001 REQ "Measurement Source and Version Floor",
 --            SPEC-0001 REQ "Peak Measurement Convention",
 --            SPEC-0001 REQ "Error Handling Standards",
---            ADR-0004 (stock Reaper DSP, inversion bounded to one place)
+--            ADR-0004 (stock Reaper DSP, inversion bounded to one place),
+--            ADR-0003 (stock Reaper plus ReaPack only — no extension may appear here)
 --
 -- Measurement core. Derives RMS, sample peak, true peak, and noise floor from
 -- Reaper's native CalculateNormalization and recovers each level by inverting
@@ -33,12 +34,17 @@ M.min_version = { major = 6, minor = 44 }
 -- returned for a given target, recover the measured level in dBFS.
 -- Governing: SPEC-0001 REQ "Measurement Source and Version Floor"
 --            ("inversion MUST be implemented in one place")
+-- There is deliberately no way to opt out of the guard below. A gain that is
+-- zero, negative, or NaN means Reaper could not measure the source; converting
+-- one anyway yields inf or NaN, which reads as a real level to everything
+-- downstream. REQ "Error Handling Standards" forbids fabricating a measurement,
+-- so failure is reported as nil and nothing else.
 -- @param gain      number  linear gain factor (as returned by Reaper)
 -- @param targetDb  number  the normalizeTarget the factor was computed for
--- @param failIfZero  boolean  treat gain<=0 as a failed measurement (default true)
 -- @return number|nil measured level in dBFS, nil if the measurement failed
-function M.recover_level(gain, targetDb, failIfZero)
-  if failIfZero ~= false and not (gain and gain > 0) then return nil end
+function M.recover_level(gain, targetDb)
+  if type(gain) ~= "number" or not (gain > 0) then return nil end
+  if type(targetDb) ~= "number" then return nil end
   return targetDb - 20 * math.log(gain) / math.log(10)
 end
 
@@ -46,7 +52,7 @@ end
 -- @param running  table { major = int, minor = int }
 -- @return boolean true if running is >= M.min_version
 function M.version_supported(running)
-  if not running or not running.major or running.major == nil then return false end
+  if not running or type(running.major) ~= "number" then return false end
   if running.major ~= M.min_version.major then
     return running.major > M.min_version.major
   end
@@ -120,6 +126,47 @@ function M.min_version_text()
   return string.format("Reaper %d.%d", M.min_version.major, M.min_version.minor)
 end
 
+-- The RUNNING version in reportable form. REQ "Measurement Source and Version
+-- Floor" requires the refusal to name both versions, and an install too old to
+-- parse is still an install the user needs named, so this degrades to the raw
+-- string rather than dropping that half of the message.
+-- @param raw  string|nil  whatever Reaper's GetAppVersion returned
+-- @return string e.g. "Reaper 6.43", or the raw string, or an explicit unknown
+function M.running_version_text(raw)
+  local running = M.parse_version(raw)
+  if running then
+    return string.format("Reaper %d.%d", running.major, running.minor)
+  end
+  if type(raw) == "string" and raw ~= "" then return raw end
+  return "an unknown Reaper version"
+end
+
+-- Decide whether the running Reaper can be analyzed at all, and if not, say so
+-- in the terms the requirement asks for: the version installed and the version
+-- needed. Reaper is passed in rather than reached for as a global, so this is
+-- testable headless and the entry point can call it at startup.
+--
+-- This function reports; it does not halt. Refusing to proceed is the caller's
+-- move — the startup wiring lands with the entry-point story (#13), and until
+-- then nothing invokes this. That is a known gap, tracked, not an oversight.
+--
+-- Governing: SPEC-0001 REQ "Measurement Source and Version Floor"
+-- @param reaper  table  the Reaper API table (needs GetAppVersion)
+-- @return boolean supported, table|nil error  -- error names both versions
+function M.check_version(reaper)
+  local raw = reaper and reaper.GetAppVersion and reaper.GetAppVersion()
+  local running = M.parse_version(raw)
+  if running and M.version_supported(running) then return true, nil end
+  return false, err.new({
+    cause = string.format(
+      "%s does not provide CalculateNormalization, which every ACX Check measurement uses",
+      M.running_version_text(raw)),
+    fix = string.format("update to %s or newer and run ACX Check again", M.min_version_text()),
+    detail = type(raw) == "string" and ("GetAppVersion reported " .. raw) or nil,
+  })
+end
+
+-- Exposed for tests.
 M._internal = { MODES = MODES, normalized_level = normalized_level }
 
 return M
