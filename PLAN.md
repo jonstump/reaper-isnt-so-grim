@@ -37,12 +37,25 @@ This is his items 1 and 2 combined: replicate the plugins and workflows first so
 1. **ACX Check for Reaper** — the headline feature. Audacity's ACX Check plugin has no direct Reaper equivalent: SWS can compute loudness statistics, and ACX's own blog has a [Reaper setup guide](https://www.acx.com/mp/blog/dont-fear-the-reaper), but nothing gives the one-click **pass/fail readout against ACX specs** (RMS between −23 and −18 dB, peaks ≤ −3 dB, noise floor ≤ −60 dB) that he relies on. We write `ACXCheck.lua`: select an item (or point it at a rendered file) and get a report that does what he values most about the Audacity plugin — it tells you **how far off each parameter you are**, not just pass/fail. For each of the three measurements: the measured value, the allowed range, the delta, and a plain-English adjustment hint. Something like:
 
    ```
-   RMS level    -24.6 dB   (need -23 to -18)   ✗ 1.6 dB too quiet → raise gain ~2 dB
+   RMS level    -24.6 dB   (need -23 to -18)   ✗ 1.6 dB too quiet, but only 1.1 dB of
+                                                 peak headroom → compress or limit;
+                                                 gain alone cannot fix this
    Peak level    -4.1 dB   (need ≤ -3)         ✓ 1.1 dB of headroom
    Noise floor  -58.3 dB   (need ≤ -60)        ✗ 1.7 dB too noisy → revisit noise reduction
    ```
 
-   Because the deltas are known, the hints can be specific: too quiet by X → suggest exactly X dB of gain (and warn if that would push peaks past −3 dB, since raising RMS and keeping peaks legal is the classic ACX tug-of-war). This closes his single biggest stated gap — and it's genuinely useful to the wider Reaper audiobook community.
+   Because the deltas are known, the hints can be specific. But specificity has a precondition: raising RMS raises peaks, so a gain figure is only advice if applying it keeps peaks legal. The example above is exactly that case — 1.6 dB short with 1.1 dB of headroom, so gain would land peaks at about −2.5 dB and break the spec it was trying to satisfy. When that happens the hint states **no gain figure at all** and recommends dynamics processing instead, because a number that cannot be applied is worse than no number for someone who has chosen to trust this readout.
+
+   When there *is* room, the hint says so plainly:
+
+   ```
+   RMS level    -26.0 dB   (need -23 to -18)   ✗ 3.0 dB too quiet → raise gain ~3.0 dB
+   Peak level   -12.0 dB   (need ≤ -3)         ✓ 9.0 dB of headroom
+   ```
+
+   This closes his single biggest stated gap — and it's genuinely useful to the wider Reaper audiobook community.
+
+   > **Superseded in part.** This item is now formally specified. See [SPEC-0001](docs/openspec/specs/acx-check/spec.md) for the requirements, [ADR-0004](docs/adrs/ADR-0004-acx-check-measurement.md) for the measurement architecture, and `tests/lua/test_evaluate.lua` for the behaviour above as executable tests. Where this plan and the spec disagree, the spec wins.
 2. **Noise Reduction wizard** (the #1 Audacity tool people miss). Audacity's flow is: select noise → get profile → apply. Reaper's equivalent is **ReaFir in subtract mode**, which works the same way but nobody can find it. A small Lua script walks him through it: "Select a second of room tone → OK → now it's removed from the whole track." ([ReaFir vs Audacity comparison](https://www.homebrewaudio.com/9603/reafir-madness-hidden-noise-reduction-tool-in-reaper/), [ReaFIR vs ReaGate guide](https://simpleclean.app/blog/remove-background-noise-in-reaper))
 3. **"Voice chain" FX preset** — ReaFir (noise) → ReaEQ (high-pass + presence) → ReaComp (gentle compression) → limiter. One click on any track. Equivalent to his Audacity effect stack but non-destructive — which is itself the first "Reaper difference" worth teaching.
 4. **One-click exports as custom actions:** *Audiobook chapter* (192kbps CBR MP3 targeting ACX specs, auto-running ACXCheck on the result — render, see your numbers and deltas, adjust if needed, done) and, secondarily, *Podcast* (MP3 normalized to −16 LUFS via Reaper's render normalization).
