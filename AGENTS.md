@@ -27,7 +27,7 @@ governance. `CLAUDE.md` is the authoritative reference; the key points for agent
   requirement is written as RFC 2119 SHALL/MUST statements with WHEN/THEN scenarios.
   The test suites trace directly to these scenarios.
 - **`ADR-0003` is the dependency ceiling**: shipped runtime code may use **stock Reaper
-  (6.37+) plus ReaPack only** — no SWS, no ReaImGui, no js_ReaScriptAPI, no third-party
+  (6.44+) plus ReaPack only** — no SWS, no ReaImGui, no js_ReaScriptAPI, no third-party
   plugins. Adding one requires a new ADR. Development tooling is unconstrained, with one
   boundary: **a development dependency may never be imported by shipped code**.
 - **`ADR-0004`** fixes the measurement architecture: stock Reaper `CalculateNormalization`,

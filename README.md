@@ -54,7 +54,7 @@ Two artifacts, split by how fast they change ([ADR-0001](docs/adrs/ADR-0001-dist
 The config zip is imported **before** ReaPack is installed, so the first thing you see
 is your own keyboard layout rather than a package manager.
 
-**Runtime dependency ceiling: stock Reaper (6.37+) plus ReaPack. Nothing else**
+**Runtime dependency ceiling: stock Reaper (6.44+) plus ReaPack. Nothing else**
 ([ADR-0003](docs/adrs/ADR-0003-dependency-policy.md)) — no SWS, no ReaImGui, no
 js_ReaScriptAPI, no third-party plugins. Adding one is not forbidden; it costs one ADR.
 

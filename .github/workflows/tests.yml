@@ -6,9 +6,11 @@
 # exits non-zero when any assertion fails.
 #
 # The matrix covers Lua 5.3 and 5.4 because ADR-0003 sets the runtime floor at
-# Reaper 6.37 and the embedded ReaScript Lua version changed across the 6.x/7.x
-# line. Passing on both means the shipped scripts do not depend on which one a
-# given supported Reaper happens to embed.
+# Reaper 6.44 (the version that introduced CalculateNormalization, per spike 9 —
+# docs/spikes/issue-9.md) and the embedded ReaScript Lua version changed across
+# the 6.x/7.x line: supported 6.x embeds 5.3, 7.x embeds 5.4. Passing on both
+# means the shipped scripts do not depend on which one a given supported Reaper
+# happens to embed.
 
 name: Tests
 
