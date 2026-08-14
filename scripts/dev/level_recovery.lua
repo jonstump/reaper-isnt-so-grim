@@ -10,10 +10,11 @@
 --
 --     measured_level_dBFS  =  target_dBFS - 20 * log10(gain_factor)
 --
--- Because the gain factor is what-remains-to-be-applied, a factor > 1 (needs
--- boosting) means the source is quieter than the target, so the measured level
--- sits below the target; a factor < 1 (needs cutting) means the opposite.
--- This mirrors Reaper's own WDL_VAL2DB = 20*log10(x).
+-- The inversion itself lives in scripts/acx/measure.lua (M.recover_level) —
+-- that is the single, testable site of the SPEC-0001 "one place" requirement.
+-- This dev module synthesizes the reference tones and documents the in-Reaper
+-- validation procedure; it reuses rather than reimplements the inversion so
+-- the spike validates exactly what ships.
 --
 -- This module is testable without Reaper: the pure math below is what gets
 -- pinned by tests/lua/test_level_recovery.lua. What it cannot prove is that
@@ -21,6 +22,7 @@
 -- that empirical confirmation MUST be run in Reaper against synthesized
 -- reference tones (see the "Run in Reaper" section at the bottom).
 
+local measure = require("acx.measure")
 local M = {}
 
 -- WDL's VAL2DB/DB2VAL pair (db2val.h), which every figure in this module routes
@@ -34,13 +36,15 @@ local function db2val(db)
   return 10 ^ (db / 20)
 end
 
--- Recover a level in dBFS from a CalculateNormalization gain factor.
+-- Recover a level in dBFS from a CalculateNormalization gain factor. Reuses the
+-- shipped single-site inversion (acx.measure.recover_level) so the spike and the
+-- implementation can never drift apart.
 -- @param gain       number  linear gain factor returned by Reaper (double)
 -- @param targetDb   number  the normalizeTarget the factor was computed for,
 --                           in dBFS (modes 1 RMS, 2 peak, 3 true peak)
 -- @return number measured level in dBFS
 function M.recover_level(gain, targetDb)
-  return targetDb - val2db(gain)
+  return measure.recover_level(gain, targetDb)
 end
 
 -- Reference signals of known level.
