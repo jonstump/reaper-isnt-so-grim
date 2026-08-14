@@ -35,6 +35,10 @@ local function show()
     footer = "space/n next   ·   b back   ·   m mono ("
       .. (monochrome and "on" or "off") .. ")   ·   Esc close",
     monochrome = monochrome,
+    -- Mutate state and signal a restart. Do NOT call show() from here: that
+    -- would open a new window which the outgoing loop then closes, so the
+    -- fixture appears to switch and the window vanishes. report.show tears
+    -- down first and re-enters via on_restart on its own frame.
     on_key = function(ch)
       if ch == 32 or ch == 110 then      -- space, n
         index = index % #fixtures.cases + 1
@@ -45,10 +49,9 @@ local function show()
       else
         return nil
       end
-      gfx.quit()
-      show()
-      return "quit"
+      return "restart"
     end,
+    on_restart = show,
   })
 end
 
