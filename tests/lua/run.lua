@@ -55,7 +55,10 @@ end
 
 _G.T = T
 
-local suites = { "tests.lua.test_evaluate" }
+local suites = {
+  "tests.lua.test_evaluate",
+  "tests.lua.test_report",
+}
 for _, s in ipairs(suites) do
   require(s)
 end

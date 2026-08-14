@@ -164,7 +164,19 @@ function M.show(rows, opts)
     end
     if opts.on_key and ch > 0 then
       local handled = opts.on_key(ch)
-      if handled == "quit" then gfx.quit() return end
+      if handled == "quit" then
+        gfx.quit()
+        if opts.on_close then opts.on_close() end
+        return
+      elseif handled == "restart" then
+        -- Re-enter on a later frame rather than immediately. A caller that
+        -- calls show() from inside on_key opens a new window that this
+        -- outgoing loop then closes — so the contract is: signal "restart",
+        -- this loop tears down, and on_restart runs on its own frame.
+        gfx.quit()
+        if opts.on_restart then reaper.defer(opts.on_restart) end
+        return
+      end
     end
     draw()
     gfx.update()
