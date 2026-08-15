@@ -85,7 +85,7 @@ The two-level distinction matters: refusing an entire project because one unknow
 
 Three stages, deliberately separated so the risky ones are isolated. Emitting the `.rpp` is a well-understood text problem. The other two are not.
 
-**Corrected after the prose survey** (`importer/FORMAT.md`): an earlier draft of this section called reading the project document a text problem too, on the assumption — inherited from `PLAN.md:90` — that `.aup3` stores project XML. It does not. The public sources describe a pair of binary blobs: one a "dictionary" of tag and attribute names, the other the project structure referencing it. The `.aup` format that preceded `.aup3` was XML, which is the likely origin of the confusion. That moves project-document decoding out of the easy half and next to sample-block decoding, and it is the reason the diagram below marks two unverified stages rather than one.
+**Corrected after the prose survey** (`importer/FORMAT.md`): an earlier draft of this section called reading the project document a text problem too, on the assumption — inherited from `PLAN.md`, since corrected — that `.aup3` stores project XML. It does not. The public sources describe a pair of binary blobs: one a "dictionary" of tag and attribute names, the other the project structure referencing it. The `.aup` format that preceded `.aup3` was XML, which is the likely origin of the confusion. That moves project-document decoding out of the easy half and next to sample-block decoding, and it is the reason the diagram below marks two unverified stages rather than one.
 
 ```mermaid
 graph TD
