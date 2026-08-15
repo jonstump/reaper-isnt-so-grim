@@ -1,8 +1,8 @@
-# What I need from you (Audacity side)
+# What I'd like from you (Audacity side)
 
-Hey — before I build the Reaper setup, I need to see how *you* actually work in Audacity, not how I imagine you do. The whole point is that day one in Reaper feels like your Audacity, so the more of this I get, the less guessing I do.
+Hey — the Reaper setup is being built to match *stock Audacity* out of the box, so nothing here blocks me and none of it is homework you owe me. What this material does is make the result **yours**: where your shortcuts differ from Audacity's defaults, your version wins in your personal build, and your real settings let me check my defaults against reality instead of guessing.
 
-**None of this is urgent, and you don't have to do all of it.** If you only have fifteen minutes, do the four items in [The short version](#the-short-version) and stop. Everything else is bonus.
+**Everything on this list is optional, and nothing waits on it.** If you only have fifteen minutes, do the four items in [The short version](#the-short-version) and stop. Everything else is bonus.
 
 **A note on your client work:** please don't send me any actual audiobook material you've been paid to narrate. Anything I ask for as an audio or project file should be a throwaway — read a paragraph of something public domain (Project Gutenberg, a cereal box, whatever). I need the *shape* of your files, not the content.
 
@@ -12,7 +12,7 @@ Hey — before I build the Reaper setup, I need to see how *you* actually work i
 
 If you do nothing else, do these four:
 
-1. **Your keyboard shortcuts, as a file** — `Edit → Preferences → Keyboard`, then click **Save…** and send me the `.xml` it writes. This is the single most valuable thing on this list: it tells me your exact muscle memory instead of me guessing which keys you actually press.
+1. **Your keyboard shortcuts, as a file** — `Edit → Preferences → Keyboard`, then click **Save…** and send me the `.xml` it writes. This is the single most valuable thing on this list: I diff it against Audacity's stock shortcuts, and anywhere you've customized, your version — not the default — goes into your personal build.
 2. **A screenshot of your whole Audacity window**, mid-edit, with a real project open — toolbars, track panel, everything exactly as you keep it.
 3. **A screenshot of ACX Check's output** — `Analyze → ACX Check` — ideally one that **passes** and one that **fails**, so I can see both readouts.
 4. **Your Audacity version and OS** — `Help → About Audacity`, screenshot or just tell me. (This determines whether your old projects are `.aup3` or the older `.aup`, which changes how much work the importer is.)
@@ -96,4 +96,6 @@ Audio samples (D1, D3) I'll keep out of the repo and reference separately — th
 
 ## What happens next
 
-Once I have the short version, I can build the first three tools you named — ACX Check, the noise-reduction wizard, and your effect chain — and hand you something to try before the rest of the setup is finished. The full list makes the *rest* of it (keyboard, toolbar, templates) match your habits instead of my guesses.
+I'm building the whole kit against stock Audacity defaults either way, so nothing waits on this list. What your material changes is the fit: the short version lets me tune ACX Check, the noise-reduction wizard, and the effect chain to your actual settings, and the full list turns the rest (keyboard, toolbar, templates) from sensible defaults into your habits. Whatever arrives, whenever it arrives, gets folded in.
+
+*(For repo readers: the design decision behind this framing — a stock-Audacity base profile with personal deltas as build-time overlays, everything here being optional calibration rather than a build input — is [ADR-0006](adrs/ADR-0006-personalization-base-profile-and-overlays.md).)*

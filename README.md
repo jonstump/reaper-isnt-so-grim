@@ -142,8 +142,9 @@ reproduces it, and the build fails without one.
 | [ADR-0003](docs/adrs/ADR-0003-dependency-policy.md) | Stock Reaper + ReaPack is the runtime ceiling |
 | [ADR-0004](docs/adrs/ADR-0004-acx-check-measurement.md) | ACX measurement with stock Reaper DSP, `gfx` report |
 | [ADR-0005](docs/adrs/ADR-0005-license-and-clean-room.md) | MIT licence and the clean-room rule |
+| [ADR-0006](docs/adrs/ADR-0006-personalization-base-profile-and-overlays.md) | Stock-Audacity base profile; personal deltas as overlays |
 | [SPEC-0001](docs/openspec/specs/acx-check/spec.md) | ACX Check requirements and scenarios ([design](docs/openspec/specs/acx-check/design.md)) |
-| [Audacity reference request](docs/audacity-reference-request.md) | What's needed from the Audacity side to build this |
+| [Audacity reference request](docs/audacity-reference-request.md) | Optional calibration material from the Audacity side |
 
 This project uses the [SDD plugin](https://github.com/joestump/claude-plugin-sdd) for
 architecture governance — see [CLAUDE.md](CLAUDE.md).
