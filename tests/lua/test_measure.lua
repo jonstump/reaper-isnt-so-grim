@@ -76,6 +76,52 @@ do
   T.check("zero gain is nil", measure.recover_level(0.0, -23.0) == nil)
   T.check("negative gain is nil", measure.recover_level(-1.0, -23.0) == nil)
   T.check("nil gain is nil", measure.recover_level(nil, -23.0) == nil)
+  T.check("NaN gain is nil", measure.recover_level(0 / 0, -23.0) == nil)
+  T.check("non-numeric gain is nil", measure.recover_level("1.0", -23.0) == nil)
+
+  -- Regression: an opt-out of the guard used to exist, and returned inf for a
+  -- zero gain and NaN for a negative one. There must be no argument that turns
+  -- a failed measurement into a number. The value is named in each description
+  -- so a failure says which input produced it.
+  for _, extra in ipairs({ false, true, 0, "false" }) do
+    local named = string.format("%s (%s)", tostring(extra), type(extra))
+    T.check("a zero gain stays nil with a third argument of " .. named,
+      measure.recover_level(0.0, -23.0, extra) == nil)
+    T.check("a negative gain stays nil with a third argument of " .. named,
+      measure.recover_level(-1.0, -23.0, extra) == nil)
+  end
+end
+
+--------------------------------------------------------------------------------
+T.suite("A bad target is a caller bug, not a failed measurement")
+--------------------------------------------------------------------------------
+do
+  -- The two must not report alike. Returning nil for a garbage target made the
+  -- surface claim "the measurement call could not produce a level" for a source
+  -- Reaper had measured perfectly well — a false cause from the module whose REQ
+  -- is about naming true ones. A contract violation raises instead.
+  -- Labelled rather than derived from the value: tostring(a table) embeds an
+  -- address, which would make the test output differ run to run.
+  local bad_targets = {
+    { label = "a numeric string", value = "-23" },
+    { label = "a table",          value = {} },
+    { label = "a boolean",        value = true },
+    { label = "nil",              value = nil },
+  }
+  for _, case in ipairs({ 1, 2, 3, 4 }) do
+    local bad = bad_targets[case]
+    local ok, raised = pcall(measure.recover_level, 1.413, bad.value)
+    T.check("a target of " .. bad.label .. " raises", not ok)
+    T.contains("the raise from " .. bad.label .. " names the argument",
+      tostring(raised), "target must be a number")
+  end
+
+  local _, raised_nil = pcall(measure.recover_level, 1.413, nil)
+  T.contains("the raise names the type it got", tostring(raised_nil), "got nil")
+
+  -- The distinction is the point: a gain Reaper could not produce is still nil.
+  T.check("a bad gain with a good target is still a quiet nil",
+    measure.recover_level(0.0, -23.0) == nil)
 end
 
 --------------------------------------------------------------------------------
@@ -140,14 +186,12 @@ T.suite("No fabricated value on failure")
 do
   -- CalculateNormalization returns 0/negative on failure; the wrapper must
   -- surface the failure via on_fail and return nil, never report a level.
-  local calls = 0
   local failed = 0
   local function on_fail(err)
     failed = failed + 1
     T.contains("failure names the cause", err.message, "could not produce a level")
     T.contains("failure carries a corrective action", err.message, "rerun ACX Check")
   end
-  local cur = calls
   local dead = fake_reaper({ [1] = 0.0, [2] = -1, [3] = 0 })
   T.check("RMS failure is nil", measure.measure_rms(dead, {}, 0, 0, on_fail) == nil)
   local p = measure.measure_peaks(dead, {}, on_fail)
@@ -161,4 +205,44 @@ T.suite("min_version_text is reportable")
 --------------------------------------------------------------------------------
 do
   T.eq("min version text", measure.min_version_text(), "Reaper 6.44")
+end
+
+--------------------------------------------------------------------------------
+T.suite("The refusal names both the installed and the required version")
+--------------------------------------------------------------------------------
+do
+  -- REQ "Measurement Source and Version Floor" asks for both halves: what is
+  -- installed and what is needed. Reporting only the requirement leaves the user
+  -- guessing whether they are the ones affected.
+  local function at(version)
+    return { GetAppVersion = function() return version end }
+  end
+
+  local ok, none = measure.check_version(at("6.44/x64"))
+  T.check("6.44 is allowed to proceed", ok)
+  T.check("no error accompanies a supported version", none == nil)
+
+  T.check("7.05 is allowed to proceed", (measure.check_version(at("7.05rc1"))))
+
+  local blocked, why = measure.check_version(at("6.43/x64"))
+  T.check("6.43 is refused", not blocked)
+  T.contains("the refusal names the installed version", why.message, "6.43")
+  T.contains("the refusal names the required version", why.message, "Reaper 6.44")
+  T.contains("the refusal says what to do", why.message, "update to")
+  T.not_contains("the raw string is not the lead", why.message, "/x64")
+  T.contains("the raw string survives as detail", why.detail, "6.43/x64")
+
+  -- An install too old or too odd to parse is still an install worth naming.
+  local unparsed, odd = measure.check_version(at("wildly unexpected"))
+  T.check("an unparseable version is refused", not unparsed)
+  T.contains("the raw string is reported when it cannot be parsed", odd.message, "wildly unexpected")
+
+  local absent, missing = measure.check_version({})
+  T.check("a Reaper without GetAppVersion is refused", not absent)
+  T.contains("an unknown version is named as unknown", missing.message, "unknown")
+  T.check("no detail is invented when there is no raw string", missing.detail == nil)
+
+  local nothing, nil_err = measure.check_version(nil)
+  T.check("no reaper table at all is refused", not nothing)
+  T.check("a refusal always carries an error", nil_err ~= nil)
 end

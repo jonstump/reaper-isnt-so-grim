@@ -16,6 +16,17 @@
 
 local M = {}
 
+-- Stand-in cause for a caller that omits one. A missing cause is itself a defect
+-- worth seeing, but it is reported rather than raised: raising here would replace
+-- the failure being reported with a traceback that hides it, which is the exact
+-- opposite of what this module exists to do. The message is always non-empty, so
+-- no failure can render as a blank string and vanish.
+local UNSPECIFIED = "an unspecified failure occurred"
+
+local function text(value)
+  return (type(value) == "string" and value ~= "") and value or nil
+end
+
 -- Build a plain-language error object from structured parts.
 -- @param opts {
 --   cause    = "the installed Reaper (6.44.0) does not provide CalculateNormalization",
@@ -26,13 +37,26 @@ local M = {}
 -- @return { message = "text", cause = ..., fix = ..., detail = ..., doc = ... }
 function M.new(opts)
   opts = opts or {}
-  local message = opts.cause
-  if opts.fix then message = message .. ". " .. opts.fix end
+  local cause = text(opts.cause)
+  local detail = opts.detail
+
+  -- A caller who passes a raw API code where a cause belongs has made a mistake,
+  -- but the code itself is still worth keeping: REQ "Error Handling Standards"
+  -- bars it from being the primary message, not from appearing as supplementary
+  -- detail. So it is demoted rather than dropped, and never over an explicit
+  -- detail the caller already supplied.
+  if not cause and opts.cause ~= nil then
+    local demoted = tostring(opts.cause)
+    if demoted ~= "" then detail = detail or demoted end
+  end
+
+  cause = cause or UNSPECIFIED
+  local fix = text(opts.fix)
   return {
-    message = message,
-    cause = opts.cause,
-    fix = opts.fix,
-    detail = opts.detail,
+    message = fix and (cause .. ". " .. fix) or cause,
+    cause = cause,
+    fix = fix,
+    detail = detail,
     doc = opts.doc,
   }
 end
@@ -40,10 +64,10 @@ end
 -- Assert a condition or return an error object; used to fail fast and plainly.
 -- @param ok     boolean  condition that must hold
 -- @param opts   table    passed to M.new on failure
--- @return nil, error-table|nil (if ok)  -- returns the error only when failing
+-- @return boolean held, error-table|nil  -- the error is present only on failure
 function M.fail_if(ok, opts)
-  if not ok then return nil, M.new(opts) end
-  return nil, nil
+  if not ok then return false, M.new(opts) end
+  return true, nil
 end
 
 -- Human-readable one-liner for logging or status bars.
@@ -51,6 +75,9 @@ function M.tostring(err)
   return err and err.message or ""
 end
 
-M._internal = {}
+-- Exposed for tests. `text` is deliberately absent: the blank-is-absent rule it
+-- encodes is covered through M.new's own behaviour, and exporting an internal no
+-- test reads is how dead surface accumulates.
+M._internal = { UNSPECIFIED = UNSPECIFIED }
 
 return M

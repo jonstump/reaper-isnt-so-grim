@@ -33,14 +33,72 @@ do
 end
 
 --------------------------------------------------------------------------------
-T.suite("fail_if returns an error only when the condition fails")
+T.suite("A malformed error is still an error, never a crash")
 --------------------------------------------------------------------------------
 do
-  local ok1, err1 = error_surface.fail_if(true, { cause = "unused" })
-  T.check("passing condition yields no error", err1 == nil)
+  -- The surface must not be the thing that fails. Raising here would swap the
+  -- failure being reported for a traceback that buries it, so a missing cause
+  -- degrades to a stand-in message instead. Regression: passing a fix with no
+  -- cause used to raise "attempt to concatenate a nil value".
+  local ok, fix_only = pcall(error_surface.new, { fix = "update Reaper to 6.44" })
+  T.check("a fix without a cause does not raise", ok)
+  T.check("the fix still reaches the message", ok and fix_only.message:find("6.44", 1, true) ~= nil)
+  T.check("a stand-in cause is supplied", ok and fix_only.cause ~= nil)
 
-  local ok2, err2 = error_surface.fail_if(false, { cause = "a real problem" })
+  -- No error may render as an empty string: a blank failure is a swallowed one.
+  local empty = error_surface.new({})
+  T.check("an empty error still has a message", empty.message ~= nil and empty.message ~= "")
+  T.check("tostring is never blank", error_surface.tostring(empty) ~= "")
+
+  local nothing = error_surface.new()
+  T.check("no arguments at all still yields a message", nothing.message ~= nil and nothing.message ~= "")
+
+  -- A blank string is as absent as nil, and must not become the message.
+  local blank = error_surface.new({ cause = "", fix = "retry" })
+  T.eq("an empty cause is treated as missing", blank.cause, error_surface._internal.UNSPECIFIED)
+  T.check("the fix survives a blank cause", blank.message:find("retry", 1, true) ~= nil)
+
+  -- A blank fix must not leave a dangling separator.
+  local no_fix = error_surface.new({ cause = "something broke", fix = "" })
+  T.eq("a blank fix is dropped entirely", no_fix.message, "something broke")
+end
+
+--------------------------------------------------------------------------------
+T.suite("A raw code passed as a cause is demoted, not discarded")
+--------------------------------------------------------------------------------
+do
+  -- REQ "Error Handling Standards" bars a raw API code from being the primary
+  -- message, not from appearing as supplementary detail. A caller who puts one
+  -- where the cause belongs has erred, but the code is still evidence — so it
+  -- moves to detail rather than being dropped on the floor.
+  local coded = error_surface.new({ cause = 1 })
+  T.eq("the message falls back to the stand-in", coded.cause, error_surface._internal.UNSPECIFIED)
+  T.eq("the code survives as detail", coded.detail, "1")
+  T.not_contains("the code is not the message", coded.message, "1")
+
+  -- An explicit detail always wins; demotion must not overwrite it.
+  local both = error_surface.new({ cause = 0x1, detail = "API return code 0x1" })
+  T.eq("an explicit detail is not clobbered", both.detail, "API return code 0x1")
+
+  -- A blank cause has nothing to demote, and must not invent an empty detail.
+  local blank = error_surface.new({ cause = "" })
+  T.check("a blank cause produces no detail", blank.detail == nil)
+
+  -- The internal table carries only what the tests actually read.
+  T.check("text is not exported", error_surface._internal.text == nil)
+end
+
+--------------------------------------------------------------------------------
+T.suite("fail_if reports whether the condition held")
+--------------------------------------------------------------------------------
+do
+  local held1, err1 = error_surface.fail_if(true, { cause = "unused" })
+  T.check("passing condition yields no error", err1 == nil)
+  T.eq("passing condition reports true", held1, true)
+
+  local held2, err2 = error_surface.fail_if(false, { cause = "a real problem" })
   T.check("failing condition yields the error", err2 ~= nil)
+  T.eq("failing condition reports false", held2, false)
   T.contains("error cause surfaces", err2.message, "a real problem")
 end
 
