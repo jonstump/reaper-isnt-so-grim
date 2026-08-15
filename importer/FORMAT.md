@@ -65,6 +65,47 @@ not one of them.
 | 9 | A block holds roughly 5 seconds of mono audio at default settings. | audacity-project-tools README | no |
 | 10 | **Audacity never updates a block in place.** When data changes it writes a new block, so block IDs are not necessarily sequential and stale blocks may persist. | audacity-project-tools README | no |
 
+### Claims from `audacity-project-tools`
+
+Read 2026-08-15 under ADR-0005's permissive-implementation clause. Source:
+[`audacity/audacity-project-tools`](https://github.com/audacity/audacity-project-tools),
+BSD-3-Clause, © 2021 Dmitry Vedenko, at commit `b1d22afc7a23` (2026-07-06).
+Licence and dependency manifest were verified *before* reading — see the
+correction section below.
+
+These are facts learned by reading, not code taken. Nothing has been copied into
+this repository yet. If any is, this table gains a row naming what was taken, and
+the upstream copyright and licence text travel with it.
+
+| # | Claim | Where in the source | Verified |
+|---|---|---|---|
+| 11 | The SQLite `application_id` for an `.aup3` project is `1096107097`. | `AudacityDatabase.cpp`, `AudacityProjectID` | no |
+| 12 | Project version is packed as `major<<24 \| minor<<16 \| patch<<8 \| build`. The tool supports up to `3.7.0.0`. | `AudacityDatabase.cpp`, `MaxSupportedVersion` | no |
+| 13 | `project` and `autosave` each hold the document in **two columns**: `dict` and `doc`, at row `id = 1`. | `ProjectBlobReader.cpp` | no |
+| 14 | `dict` and `doc` are **concatenated in that order** and parsed as one continuous stream. | `ProjectBlobReader.cpp`, `ReadProjectBlob` | no |
+| 15 | The stream is **not compressed**. It is read raw and parsed directly. | `ProjectBlobReader.cpp` → `BinaryXMLConverter.cpp`, no decompression stage between them | no |
+| 16 | The document is a **tagged binary stream**. Each field opens with a `uint8` type tag from a 16-value set: `CharSize, StartTag, EndTag, String, Int, Bool, Long, LongLong, SizeT, Float, Double, Data, Raw, Push, Pop, Name`. | `BinaryXMLConverter.cpp`, `FieldTypes` | no |
+| 17 | Tag and attribute names are **interned**: `FT_Name` carries `ID + length + name`, and every other field references a name by numeric ID. This is what the `dict` blob holds. | `BinaryXMLConverter.cpp`, `FieldTypes` layout comments | no |
+| 18 | A `CharSize` field sets the byte-width used for subsequent string reads — string encoding is not fixed and must be read from the stream. | `BinaryXMLConverter.cpp`, `Stream::setCharSize` / `readString` | no |
+| 19 | `sampleblocks` has at least the columns `blockid`, `sampleformat`, and `samples`. | `ProjectModel.cpp` queries | no |
+| 20 | Sample formats are `int16` / `int24` / `float`, encoded as `0x00020001`, `0x00040001`, `0x0004000F`. | `SampleFormat.h`, `SampleFormat.cpp` | no |
+| 21 | **`int24` occupies 3 bytes in memory but 4 bytes on disk.** `int16` is 2/2, `float` is 4/4. | `SampleFormat.cpp`, `BytesPerSample` vs `DiskBytesPerSample` | no |
+| 22 | Document structure is `wavetrack` → `waveclip` → `sequence` → `waveblock`. | `ProjectModel.cpp` | no |
+| 23 | `wavetrack` carries `name` and `rate` (int). `sequence` carries `maxsamples`, `numsamples` (int64) and `sampleformat`. `waveblock` carries `start` (int64) and `blockid` (int64). `waveclip` carries `offset`, `trimLeft`, `trimRight` (all double) and `name`. | `ProjectModel.cpp` attribute parsing; `ProjectModel.h` field types | no |
+| 24 | **Positions use two different units.** `waveclip/@offset` is in **seconds** (double); `waveblock/@start` is a **sample index** within its sequence (int64). | `ProjectModel.h` field types | no |
+| 25 | **A negative `blockid` means silence** — a block with no stored samples. | `ProjectModel.cpp`, `WaveBlock::isSilence` | no |
+| 26 | Clips carry `trimLeft` / `trimRight` — the audible region is a subrange of the underlying sequence, not the whole of it. | `ProjectModel.cpp`, `WaveClip` attribute parsing | no |
+
+### Three of these will silently corrupt a naive importer
+
+Worth pulling out, because each produces plausible output rather than an error:
+
+- **Claim 21** — reading `int24` as 3 bytes on disk desynchronises the entire block. Every sample after the first is garbage, and it will still play.
+- **Claim 25** — treating a negative `blockid` as a lookup failure either aborts a valid project or, worse, drops silence and shifts everything after it earlier.
+- **Claim 26** — ignoring `trimLeft` places the wrong audio at the right timestamp. This is exactly the failure SPEC-0002 REQ "Timeline Placement Fidelity" is written against, and it is invisible without listening.
+
+**Claim 24 settles a SPEC-0002 open question.** Clip positions are seconds-as-double, so the spec's "within one sample period" tolerance is meaningful but not free: whether `offset × rate` lands on an integer sample is not guaranteed, and the importer has to decide how to round.
+
 ### Why claim 10 matters more than it looks
 
 An importer that assumes block IDs are contiguous, or that every block in the
@@ -80,29 +121,38 @@ Recording these so nobody later wonders whether the trail was missed or refused.
 
 | Pointer | Where it surfaced | Why not followed |
 |---|---|---|
-| `ProjectSerializer.cpp::Decode` — said to contain the decompression logic for the project blob | Named by a community member in Audacity Forum thread 61618. No code was quoted in the thread. | It is Audacity source. ADR-0005 forbids reading it. This is the single most useful-looking pointer found in the survey and it is being left alone on purpose. |
+| `ProjectSerializer.cpp::Decode` — said to contain the "decompression" logic for the project blob | Named by a community member in Audacity Forum thread 61618. No code was quoted in the thread. | It is Audacity source. ADR-0005 forbids reading it, amendment or no amendment. **No longer needed:** claims 15–18 answer what it was wanted for. The blob is not compressed; "decode" refers to parsing the tagged binary stream, which claim 16 characterises. The forum's word choice sent the survey looking for a compression algorithm that does not exist. |
 
 ## Unresolved
 
 The prose survey did not answer these. Each is a candidate for file inspection
 once fixtures arrive, and several are load-bearing for SPEC-0002.
 
-- **Column names** in any of the three tables. No source gave them.
-- **How the project structure blob is encoded.** Compressed? With what? The
-  dictionary blob implies tag/attribute names are interned and referenced by
-  index, but the container format is unknown. This is the hardest open item.
-- **How the dictionary blob is encoded**, and how entries in it are referenced
-  from the structure blob.
-- **Sample encoding inside `sampleblocks`** — bit depth, channel interleaving,
-  endianness, whether a block is raw PCM or framed.
-- **Where summary/peak data lives.** Audacity draws waveforms without decoding
-  everything, so summaries exist somewhere; no source located them.
-- **How clip positions are expressed** — samples or seconds. SPEC-0002 states a
-  tolerance of one sample period, and whether that is exact or merely tight
-  depends on this.
+Most of the original list was answered by claims 11–26. What is left:
+
+- **Byte-level widths inside the tagged stream.** Claim 16 gives the field types
+  and their layouts; it does not give how wide an ID is, or a length prefix, or
+  whether values are little-endian. Reading `Stream::read<T>` more closely, or
+  inspecting a real blob, resolves this. This is the last thing between here and
+  a working parser.
+- **Channel interleaving and endianness inside a `samples` blob.** Claims 20–21
+  give the formats and their disk widths, but not whether a stereo block
+  interleaves or whether each channel is its own sequence. The `wavetrack` /
+  `channel` attribute suggests the latter — unconfirmed.
+- **Where summary/peak data lives.** Still open. `audacity-project-tools` reads
+  only `sampleformat` and `samples` from `sampleblocks`, so if summary columns
+  exist it does not touch them. Not load-bearing for the importer — Reaper builds
+  its own peaks — so this can stay open.
 - **How multi-clip tracks and any implicit cross-fade behaviour are represented.**
-- **Whether the schema changed across 3.x releases.** Relevant because the
-  reference request asks which Audacity version produced the projects.
+  Claims 22 and 26 give the containment and trimming model, which is most of it;
+  whether adjacent clips carry implicit behaviour is still unknown.
+- **Whether the schema changed across 3.x releases.** Partly answered by claim 12
+  — a version is stored and packed in a known way, and the tool declares support
+  through 3.7.0.0 — but not *what* changed between versions.
+- **The `autosave` / `project` interaction in practice.** Claim 6 says `autosave`
+  is normally empty in a cleanly-closed project. What an importer should do when
+  it is *not* empty — crash recovery state, presumably newer than `project` — is
+  a design question the spec does not yet answer.
 
 ## Corrections this survey produced
 
@@ -161,6 +211,19 @@ of the confusion.
 This matters for planning, not just accuracy: it moves decoding the project
 document out of the "easy half" and next to sample-block decoding in difficulty.
 Both `PLAN.md` and `design.md` should be corrected.
+
+## Attribution
+
+`audacity-project-tools` is BSD-3-Clause, © 2021 Dmitry Vedenko. Claims 11–26
+were learned by reading it; no code has been copied into this repository. Should
+any be, the upstream copyright notice and licence text travel with it, per the
+licence and per ADR-0005.
+
+Worth stating plainly in the provenance record: the hard half of this format was
+reverse-engineered by someone else, and they published it under a licence that
+lets this project benefit. The importer's format knowledge is substantially
+inherited rather than derived, which is exactly the trade ADR-0005's amendment
+made deliberately.
 
 ## Sources consulted
 
