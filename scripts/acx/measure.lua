@@ -34,17 +34,28 @@ M.min_version = { major = 6, minor = 44 }
 -- returned for a given target, recover the measured level in dBFS.
 -- Governing: SPEC-0001 REQ "Measurement Source and Version Floor"
 --            ("inversion MUST be implemented in one place")
--- There is deliberately no way to opt out of the guard below. A gain that is
--- zero, negative, or NaN means Reaper could not measure the source; converting
--- one anyway yields inf or NaN, which reads as a real level to everything
--- downstream. REQ "Error Handling Standards" forbids fabricating a measurement,
--- so failure is reported as nil and nothing else.
+-- The two arguments fail in different ways and must not report alike.
+--
+-- A bad TARGET is a caller bug: we choose it, Reaper never gets a say in it. It
+-- raises, at the caller's line, because returning nil would surface "the
+-- measurement call could not produce a level" for a source Reaper measured
+-- perfectly well — a false cause, from the module whose REQ is about naming true
+-- ones. This is not the error surface reporting a failure; it is a contract
+-- being violated, and those should be loud.
+--
+-- A bad GAIN is data: zero, negative, or NaN is Reaper telling us it could not
+-- measure the source. That returns nil, and there is deliberately no way to opt
+-- out — converting one anyway yields inf or NaN, which reads as a real level to
+-- everything downstream, and REQ "Error Handling Standards" forbids fabricating
+-- a measurement.
 -- @param gain      number  linear gain factor (as returned by Reaper)
 -- @param targetDb  number  the normalizeTarget the factor was computed for
 -- @return number|nil measured level in dBFS, nil if the measurement failed
 function M.recover_level(gain, targetDb)
+  if type(targetDb) ~= "number" then
+    error(string.format("recover_level: target must be a number, got %s", type(targetDb)), 2)
+  end
   if type(gain) ~= "number" or not (gain > 0) then return nil end
-  if type(targetDb) ~= "number" then return nil end
   return targetDb - 20 * math.log(gain) / math.log(10)
 end
 

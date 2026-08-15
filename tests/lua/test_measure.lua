@@ -78,17 +78,50 @@ do
   T.check("nil gain is nil", measure.recover_level(nil, -23.0) == nil)
   T.check("NaN gain is nil", measure.recover_level(0 / 0, -23.0) == nil)
   T.check("non-numeric gain is nil", measure.recover_level("1.0", -23.0) == nil)
-  T.check("a missing target is nil", measure.recover_level(1.0, nil) == nil)
 
   -- Regression: an opt-out of the guard used to exist, and returned inf for a
   -- zero gain and NaN for a negative one. There must be no argument that turns
-  -- a failed measurement into a number.
+  -- a failed measurement into a number. The value is named in each description
+  -- so a failure says which input produced it.
   for _, extra in ipairs({ false, true, 0, "false" }) do
-    local zero = measure.recover_level(0.0, -23.0, extra)
-    local negative = measure.recover_level(-1.0, -23.0, extra)
-    T.check("no extra argument revives a zero gain", zero == nil)
-    T.check("no extra argument revives a negative gain", negative == nil)
+    local named = string.format("%s (%s)", tostring(extra), type(extra))
+    T.check("a zero gain stays nil with a third argument of " .. named,
+      measure.recover_level(0.0, -23.0, extra) == nil)
+    T.check("a negative gain stays nil with a third argument of " .. named,
+      measure.recover_level(-1.0, -23.0, extra) == nil)
   end
+end
+
+--------------------------------------------------------------------------------
+T.suite("A bad target is a caller bug, not a failed measurement")
+--------------------------------------------------------------------------------
+do
+  -- The two must not report alike. Returning nil for a garbage target made the
+  -- surface claim "the measurement call could not produce a level" for a source
+  -- Reaper had measured perfectly well — a false cause from the module whose REQ
+  -- is about naming true ones. A contract violation raises instead.
+  -- Labelled rather than derived from the value: tostring(a table) embeds an
+  -- address, which would make the test output differ run to run.
+  local bad_targets = {
+    { label = "a numeric string", value = "-23" },
+    { label = "a table",          value = {} },
+    { label = "a boolean",        value = true },
+    { label = "nil",              value = nil },
+  }
+  for _, case in ipairs({ 1, 2, 3, 4 }) do
+    local bad = bad_targets[case]
+    local ok, raised = pcall(measure.recover_level, 1.413, bad.value)
+    T.check("a target of " .. bad.label .. " raises", not ok)
+    T.contains("the raise from " .. bad.label .. " names the argument",
+      tostring(raised), "target must be a number")
+  end
+
+  local _, raised_nil = pcall(measure.recover_level, 1.413, nil)
+  T.contains("the raise names the type it got", tostring(raised_nil), "got nil")
+
+  -- The distinction is the point: a gain Reaper could not produce is still nil.
+  T.check("a bad gain with a good target is still a quiet nil",
+    measure.recover_level(0.0, -23.0) == nil)
 end
 
 --------------------------------------------------------------------------------

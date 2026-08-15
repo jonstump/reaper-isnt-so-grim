@@ -37,13 +37,26 @@ end
 -- @return { message = "text", cause = ..., fix = ..., detail = ..., doc = ... }
 function M.new(opts)
   opts = opts or {}
-  local cause = text(opts.cause) or UNSPECIFIED
+  local cause = text(opts.cause)
+  local detail = opts.detail
+
+  -- A caller who passes a raw API code where a cause belongs has made a mistake,
+  -- but the code itself is still worth keeping: REQ "Error Handling Standards"
+  -- bars it from being the primary message, not from appearing as supplementary
+  -- detail. So it is demoted rather than dropped, and never over an explicit
+  -- detail the caller already supplied.
+  if not cause and opts.cause ~= nil then
+    local demoted = tostring(opts.cause)
+    if demoted ~= "" then detail = detail or demoted end
+  end
+
+  cause = cause or UNSPECIFIED
   local fix = text(opts.fix)
   return {
     message = fix and (cause .. ". " .. fix) or cause,
     cause = cause,
     fix = fix,
-    detail = opts.detail,
+    detail = detail,
     doc = opts.doc,
   }
 end
@@ -62,7 +75,9 @@ function M.tostring(err)
   return err and err.message or ""
 end
 
--- Exposed for tests.
-M._internal = { UNSPECIFIED = UNSPECIFIED, text = text }
+-- Exposed for tests. `text` is deliberately absent: the blank-is-absent rule it
+-- encodes is covered through M.new's own behaviour, and exporting an internal no
+-- test reads is how dead surface accumulates.
+M._internal = { UNSPECIFIED = UNSPECIFIED }
 
 return M

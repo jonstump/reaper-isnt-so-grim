@@ -64,6 +64,31 @@ do
 end
 
 --------------------------------------------------------------------------------
+T.suite("A raw code passed as a cause is demoted, not discarded")
+--------------------------------------------------------------------------------
+do
+  -- REQ "Error Handling Standards" bars a raw API code from being the primary
+  -- message, not from appearing as supplementary detail. A caller who puts one
+  -- where the cause belongs has erred, but the code is still evidence — so it
+  -- moves to detail rather than being dropped on the floor.
+  local coded = error_surface.new({ cause = 1 })
+  T.eq("the message falls back to the stand-in", coded.cause, error_surface._internal.UNSPECIFIED)
+  T.eq("the code survives as detail", coded.detail, "1")
+  T.not_contains("the code is not the message", coded.message, "1")
+
+  -- An explicit detail always wins; demotion must not overwrite it.
+  local both = error_surface.new({ cause = 0x1, detail = "API return code 0x1" })
+  T.eq("an explicit detail is not clobbered", both.detail, "API return code 0x1")
+
+  -- A blank cause has nothing to demote, and must not invent an empty detail.
+  local blank = error_surface.new({ cause = "" })
+  T.check("a blank cause produces no detail", blank.detail == nil)
+
+  -- The internal table carries only what the tests actually read.
+  T.check("text is not exported", error_surface._internal.text == nil)
+end
+
+--------------------------------------------------------------------------------
 T.suite("fail_if reports whether the condition held")
 --------------------------------------------------------------------------------
 do
