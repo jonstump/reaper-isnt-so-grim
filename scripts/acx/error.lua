@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Error Handling Standards", ADR-0004 (stock Reaper DSP)
 --
 -- Shared error surface for the ACX Check capability. Foundation concern, not a

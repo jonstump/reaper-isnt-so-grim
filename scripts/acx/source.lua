@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Input Resolution",
 --            SPEC-0001 REQ "Noise Floor Region Determination",
 --            SPEC-0001 REQ "Read-Only Operation",

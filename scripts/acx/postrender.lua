@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Programmatic Invocation After Render",
 --            ADR-0004 (the measurement pipeline this seam wires together)
 --

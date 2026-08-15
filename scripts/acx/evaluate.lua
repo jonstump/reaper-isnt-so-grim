@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Delta Calculation and Adjustment Hints"
 -- Governing: SPEC-0001 REQ "Peak Measurement Convention" (advisory line only)
 --
