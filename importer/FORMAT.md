@@ -25,16 +25,28 @@ fact. The `Verified` column is what changes when fixtures land.
 
 ## The rule, restated
 
+Amended 2026-08-15 — see "Corrections this survey produced" below.
+
 | | |
 |---|---|
-| **Permitted** | Inspecting real `.aup3` files. Public prose descriptions — release notes, blog posts, forum threads, wikis, README documentation. |
-| **Forbidden** | Reading Audacity's source. Reading the source of GPL tooling built on Audacity's codebase. |
-| **Permitted but unused so far** | Observing the *behaviour* of GPL tooling (running it, watching what it does to a file). |
+| **Permitted** | Inspecting real `.aup3` files. Public prose descriptions — release notes, blog posts, forum threads, wikis, README documentation. Observing any tool's behaviour. |
+| **Permitted, with conditions** | Reading and adapting **permissively-licensed** implementations (MIT / BSD / Apache-2.0 or similar) that do not themselves incorporate Audacity's GPL code. Conditions below. |
+| **Forbidden** | Reading Audacity's source. Reading the source of any tool that incorporates it, whatever that tool's own licence says. |
 
-If inspection cannot resolve something, the options are: keep experimenting,
-narrow v1 scope, or relicense `importer/` under a new ADR. Reading the source is
-not one of them, and the strict rule exists precisely so that pressure does not
-quietly become a reason to break it.
+**Before reading any third-party implementation**, verify two things and record
+the check in this file: its declared licence, and that its dependency manifest is
+free of Audacity. A permissive licence on a project that vendors GPL code does not
+make the GPL code permissive. Verify *before* reading, not after — afterwards is
+too late to un-read it.
+
+**Anything adapted carries attribution**: the upstream copyright notice and
+licence text as that licence requires, plus a row in Claims naming the tool, the
+version, and what was taken.
+
+If neither inspection nor a lawful implementation resolves something, the options
+are: keep experimenting, narrow v1 scope, or relicense `importer/` under a new ADR
+and consult Audacity directly. Reading Audacity's source without that relicense is
+not one of them.
 
 ## Claims
 
@@ -110,16 +122,30 @@ The premise is wrong. GitHub's repository metadata reports the project as
 which is permissive and MIT-compatible, requiring attribution rather than
 copyleft reciprocity.
 
-**The restriction stands until ADR-0005 is amended.** A rule is not repealed by
-noticing its rationale is shaky — that is the whole point of writing rules down.
-But the correction is worth an ADR revisit, because if the tool is genuinely
-BSD-3-Clause then reading it is a legitimate and very large shortcut through the
-hardest part of Phase 2.
+**Resolved 2026-08-15: ADR-0005 was amended and the restriction lifted for this
+tool.** The open question was whether its *declared* licence matched its actual
+composition — a permissive licence on a project that vendors GPL code would not
+make the GPL code permissive. Checked, via repository metadata only:
 
-One question that revisit should settle: the repository's *declared* licence is
-BSD-3-Clause, but whether it vendors or links GPL Audacity code is a separate
-matter this survey did not establish. Declared licence and actual composition are
-not the same question.
+| Check | Result |
+|---|---|
+| Declared licence | BSD-3-Clause (GitHub repository metadata) |
+| Git submodules | none |
+| Vendored third-party code (`3party/`) | SQLite only |
+| Dependency manifest (`conanfile.txt`) | fmt, sqlite3, SQLiteCpp, gflags, utfcpp, boost — no Audacity |
+| Size and shape | 16 files in `src/`; an independent reimplementation, not a fork |
+
+So it is lawful to read for an MIT project, with attribution. ADR-0005's permitted
+sources now include permissively-licensed implementations meeting exactly this
+test, and Audacity's own source remains as forbidden as it was.
+
+`src/` filenames alone — read as metadata, no file opened — indicate the tool
+implements `ProjectBlobReader`, `BinaryXMLConverter`, `SampleFormat`, and
+`WaveFile`. That is close to a one-to-one map onto the Unresolved list above,
+which is why this correction matters more than a licence footnote usually would.
+
+Nothing has been read yet. When it is, each fact taken lands in Claims with the
+tool, the version, and what was taken.
 
 ### The project document is not XML
 

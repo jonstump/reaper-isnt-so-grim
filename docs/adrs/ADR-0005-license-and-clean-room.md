@@ -11,7 +11,7 @@ related: [ADR-0002, ADR-0003]
 
 The repository is public and has no `LICENSE` file, which means it is currently "all rights reserved" by default — the opposite of the intent. Separately, `PLAN.md` commits to a clean-room note for Phase 2: "read the format by inspecting files, don't port Audacity's GPL source."
 
-These two questions are one decision. Audacity is GPL-2.0-or-later. If this project were GPL-licensed, consulting and porting Audacity's source would be entirely legitimate and the reverse-engineering problem would largely dissolve. Under a permissive licence it is not, and the `.aup3` format has to be derived from inspection alone.
+These two questions are one decision. Audacity is GPL-2.0-or-later. If this project were GPL-licensed, consulting and porting Audacity's source would be entirely legitimate and the reverse-engineering problem would largely dissolve. Under a permissive licence it is not, and the `.aup3` format has to be derived without it. (The 2026-08-15 amendment below establishes that "without Audacity's source" is not the same as "from inspection alone" — lawfully-licensed third-party implementations are also available, and one exists.)
 
 The timing matters more than Phase 2's distance suggests. **The clean-room constraint governs how anyone is permitted to research the format starting now.** Deciding it after someone has already read Audacity's source is deciding it too late — the knowledge cannot be un-acquired, and the provenance of every subsequent design choice becomes arguable.
 
@@ -45,18 +45,29 @@ The GPL option is not lost. **Relicensing `importer/` to GPL-3.0 remains availab
 
 A `LICENSE` file at the repository root, plus SPDX identifiers in source files as they are written.
 
-### Clean-room: strict
+### Clean-room: strict about Audacity's source, not about everything adjacent to it
 
-**Audacity's source is not to be read by anyone working on this project.** The `.aup3` format is derived from two permitted sources only:
+**Audacity's source is not to be read by anyone working on this project.** That is the absolute. The `.aup3` format is derived from three permitted sources:
 
-1. **Inspection of real `.aup3` files** — opening the SQLite database, reading its schema, examining the project XML and sample blocks directly.
+1. **Inspection of real `.aup3` files** — opening the SQLite database, reading its schema, examining the project blob and sample blocks directly.
 2. **Public prose descriptions** — blog posts, release notes, forum threads, format write-ups that describe the format in words rather than reproducing code.
+3. **Permissively-licensed third-party implementations** — source that is MIT, BSD, Apache-2.0, or similar, and that does not itself incorporate Audacity's GPL code. Reading these is permitted; so is adapting them, subject to their attribution terms.
 
-This extends to GPL-licensed tooling built on Audacity's codebase, including `audacity-project-tools`. Its *behaviour* may be observed; its source may not be read.
+The third source is a correction, made 2026-08-15, to a rule that originally reached further than its own reasoning did.
+
+**What the correction fixes.** The original text read: *"This extends to GPL-licensed tooling built on Audacity's codebase, including `audacity-project-tools`. Its behaviour may be observed; its source may not be read."* Both halves of that premise are false. `audacity-project-tools` is **BSD-3-Clause**, per its repository metadata, and it is not built on Audacity's codebase — it has no submodules, its only vendored dependency is SQLite, and its full dependency manifest is fmt, sqlite3, SQLiteCpp, gflags, utfcpp, and boost. It is a small, independent reimplementation, not a fork.
+
+**Why the correction is the right call rather than a convenient one.** The rationale in the Context above is specifically about copyleft: Audacity is GPL, this project is MIT, and porting GPL source into an MIT project is what is not permitted. BSD-3-Clause into MIT is permitted, with attribution — it raises none of the concern the rule was written to address. A prohibition that survives the disappearance of its own justification is superstition, not discipline.
+
+The cost of getting this wrong in the strict direction was concrete. `audacity-project-tools` contains `ProjectBlobReader`, `BinaryXMLConverter`, `SampleFormat`, and `WaveFile` — an almost exact list of the unknowns `importer/FORMAT.md` records as unresolved, and of the sample-block encoding this ADR's own Consequences name as the likely dead end. The rule as originally written forbade the one lawful shortcut through the hardest part of Phase 2.
+
+**What does not change.** Audacity's own source stays unread, whatever the provocation, and so does the source of any tool that incorporates it. The permissive exception is not a general licence to go looking for code that solves the problem; it is scoped to implementations whose licence makes reading them lawful for an MIT project.
+
+**Attribution is not optional.** Anything adapted from a permissively-licensed implementation carries its copyright notice and licence text as that licence requires, and a provenance note naming the tool, the version, and what was taken. BSD-3-Clause compliance is cheap, and skipping it would reintroduce exactly the licensing exposure this ADR exists to prevent.
 
 **Every format fact carries a provenance note.** As the importer's understanding of `.aup3` accumulates, each non-obvious fact is recorded with where it came from — "derived from `sqlite3 fixture.aup3 .schema`", "stated in the Audacity 3.0 release announcement". This lives alongside the importer as a format document and costs almost nothing to maintain while the knowledge is being acquired. Reconstructing it afterward is nearly impossible.
 
-This is not a formal two-person clean room, where one party writes a specification and a second implements it blind. That ceremony is disproportionate to a solo hobby project, and the strict no-reading rule already provides the property that matters: no Audacity code has passed through the author's hands.
+This is not a formal two-person clean room, where one party writes a specification and a second implements it blind. That ceremony is disproportionate to a solo hobby project, and the no-reading rule already provides the property that matters: no Audacity code has passed through the author's hands. Reading a BSD-3-Clause reimplementation does not weaken that property — no Audacity code passes through the author's hands that way either. It weakens a different and much softer claim, that the format knowledge was derived here rather than inherited, and that claim is worth less than a working importer.
 
 ### Fixtures: original or public-domain only
 
@@ -71,11 +82,13 @@ Audiobook narration is copyrighted work-for-hire. A publisher's material in a pu
 
 * Good, because the repository becomes legally usable at all, which it currently is not.
 * Good, because `ACXCheck.lua` can be adopted by any Reaper user without a licensing conversation — the condition for `PLAN.md`'s community-contribution goal to mean anything.
-* Good, because the strict rule is unambiguous. "Never open it" requires no judgement in the moment, which is exactly what a rule about temptation should require.
+* Good, because the rule about Audacity's own source stays unambiguous. "Never open it" requires no judgement in the moment, which is exactly what a rule about temptation should require.
+* Good, because the permissive exception restores a lawful path through the hardest part of Phase 2 — project-blob and sample-block encoding — without touching the copyleft boundary that motivated the rule.
 * Good, because provenance notes are being written while the knowledge is fresh, when they are nearly free.
 * Good, because the GPL escape stays genuinely available, so the strict rule does not become a reason to work around itself.
 * Good, because the fixture rule protects his buddy from a mistake he has no reason to anticipate.
-* **Bad, because a format detail may resist inspection.** Sample-block encoding is the likely candidate. If it does, the options are to keep experimenting, narrow v1's scope further, or relicense `importer/` and consult — and only the last is fast. The strict rule buys clarity at the cost of a possible dead end.
+* **Bad, because a format detail may still resist derivation.** Sample-block and project-blob encoding remain the likely candidates. The permissive exception makes this much less likely than the original text feared — a lawful implementation of both exists — but if a detail resists even that, the options are unchanged: keep experimenting, narrow v1's scope, or relicense `importer/` and consult Audacity directly.
+* **Bad, because the permissive exception requires judgement where the original required none.** "Is this licence permissive, and does this project incorporate GPL code?" is a question that can be got wrong, and got wrong quietly. The mitigation is the attribution and provenance requirement: anything adapted names its source, so a wrong call is visible in the record rather than buried in a commit.
 * Bad, because MIT permits a third party to take `ACXCheck.lua` into a closed product with no reciprocity. Given the aim is adoption rather than capture, this is a cost worth accepting rather than a harm.
 * Bad, because provenance notes are discipline, and discipline decays. The mitigation is that they are only required while the format is being learned, which is a bounded window.
 * Neutral, because SPDX headers add a line to every file. Cheap, and they make the licence legible where people actually look.
@@ -85,7 +98,8 @@ Audiobook narration is copyrighted work-for-hire. A publisher's material in a pu
 * **A `LICENSE` file exists at the repository root** before any further code lands. This is the fix for a live defect and should not wait on Phase 2.
 * **The importer ships with a format document** whose non-obvious facts each carry a provenance line. A fact with no stated source is treated as a review failure, because it is indistinguishable from a remembered one.
 * **The fixture README records provenance and content confirmation** for every committed `.aup3`, and no fixture is committed without it.
-* **If the strict rule is ever relaxed, it happens as an ADR that supersedes this one**, plus an explicit relicense of `importer/`. A commit that quietly reflects source knowledge is the failure mode this decision exists to prevent, and it is detectable only by the person who wrote it — which makes the norm, not the review, the actual control.
+* **Every permissively-licensed implementation read is verified before it is read**, not after. Its declared licence and its dependency manifest are both checked, and the check is recorded in `importer/FORMAT.md`. A permissive licence on a project that vendors GPL code does not make the GPL code permissive.
+* **If the rule against Audacity's own source is ever relaxed, it happens as an ADR that supersedes this one**, plus an explicit relicense of `importer/`. A commit that quietly reflects Audacity source knowledge is the failure mode this decision exists to prevent, and it is detectable only by the person who wrote it — which makes the norm, not the review, the actual control. The 2026-08-15 correction is not an instance of this: it widened the permitted sources to include lawful ones, and left the prohibition on Audacity's source exactly where it was.
 
 ## Pros and Cons of the Options
 
@@ -112,22 +126,26 @@ Audiobook narration is copyrighted work-for-hire. A publisher's material in a pu
 ```mermaid
 graph TD
     subgraph Permitted["Permitted knowledge sources"]
-        INSP["Direct inspection of real .aup3 files<br/>sqlite3 schema, project XML, sample blocks"]
+        INSP["Direct inspection of real .aup3 files<br/>sqlite3 schema, project blob, sample blocks"]
         PROSE["Public prose descriptions<br/>release notes, blog posts, forum threads"]
-        OBS["Observed behaviour of GPL tools<br/>run them, watch what they produce"]
+        OBS["Observed behaviour of any tool<br/>run it, watch what it produces"]
+        PERM["Permissively-licensed implementations<br/>MIT / BSD / Apache-2.0, no GPL inside<br/>e.g. audacity-project-tools (BSD-3-Clause)"]
     end
 
     subgraph Forbidden["Forbidden under MIT"]
         SRC["Audacity source code"]
-        APT["audacity-project-tools source<br/>and other GPL-derived code"]
+        DERIV["Any tool that incorporates it<br/>however its own licence reads"]
     end
 
     INSP --> FACTS["Format facts<br/>each with a provenance line"]
     PROSE --> FACTS
     OBS --> FACTS
+    PERM --> GATE{"Licence verified?<br/>Dependency manifest<br/>free of GPL?"}
+    GATE -->|yes| FACTS
+    GATE -->|no| DERIV
 
     SRC -.->|"blocked"| X["✗"]
-    APT -.->|"blocked"| X
+    DERIV -.->|"blocked"| X
 
     FACTS --> DOC["importer/FORMAT.md<br/>fact + where it came from"]
     DOC --> IMPL["aup3_to_rpp.py<br/>MIT, stdlib only"]
