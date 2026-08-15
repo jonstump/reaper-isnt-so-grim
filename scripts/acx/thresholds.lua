@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Threshold Configuration"
 --
 -- ACX's delivery specifications, in one place, deliberately separate from

@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Report Presentation"
 -- Governing: SPEC-0001 REQ "Status Indication Without Reliance on Colour"
 -- Governing: ADR-0004 (gfx report surface, chosen over ReaImGui to avoid an extension)

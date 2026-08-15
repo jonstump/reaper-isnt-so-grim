@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Governing: SPEC-0001 REQ "Measurement Source and Version Floor",
 --            SPEC-0001 REQ "Peak Measurement Convention",
 --            SPEC-0001 REQ "Error Handling Standards",
