@@ -63,6 +63,7 @@ local suites = {
   "tests.lua.test_error",
   "tests.lua.test_source",
   "tests.lua.test_postrender",
+  "tests.lua.test_acxcheck",
 }
 for _, s in ipairs(suites) do
   require(s)
