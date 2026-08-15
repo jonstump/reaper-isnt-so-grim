@@ -55,6 +55,30 @@ local function fake_source(length)
   return { token = "PCM_source", length = length }
 end
 
+-- A `PCM_Source_GetPeaks` stub that records the (starttime, bucket count) it was
+-- called with -- so a test can assert read_peaks asked for the right range --
+-- and fills a quiet window at bucket indices [quiet_from, quiet_to), 1-based
+-- and relative to whatever starttime the scan itself used, everywhere else at
+-- `loud`. Pass quiet_from = nil to skip the quiet window and return `loud`
+-- throughout.
+local function fake_peaks_reader(quiet_from, quiet_to, loud, quiet)
+  local calls = {}
+  local function get_peaks(_, rate, starttime, numchannels, numsamples, _want_extra, buf)
+    calls[#calls + 1] = { rate = rate, starttime = starttime, channels = numchannels, buckets = numsamples }
+    local values = {}
+    for b = 1, numsamples do
+      local v = (quiet_from and b >= quiet_from and b < quiet_to) and quiet or loud
+      for c = 0, numchannels - 1 do
+        values[(b - 1) * numchannels + c + 1] = v
+        values[numsamples * numchannels + (b - 1) * numchannels + c + 1] = -v
+      end
+    end
+    buf.table = function() return values end
+    return numsamples
+  end
+  return get_peaks, calls
+end
+
 local function reading_reaper(opts)
   opts = opts or {}
   local destroyed = {}
@@ -72,6 +96,9 @@ local function reading_reaper(opts)
       if isSet then error("GetSet_LoopTimeRange called with isSet = true") end
       return opts.time_selection[1], opts.time_selection[2]
     end or nil,
+    PCM_Source_GetPeaks = opts.peaks,
+    GetMediaSourceNumChannels = opts.peaks and function() return opts.channels or 1 end or nil,
+    new_array = opts.peaks and function() return {} end or nil,
   }
   local guard, violations = strict_reaper(api)
   return guard, violations, destroyed
@@ -269,6 +296,72 @@ do
   local resolved = source.resolve(reaper, { path = "/tmp/rendered.wav" })
   local region = source.noise_region(reaper, resolved)
   T.check("the selection is ignored for a file", region == nil or region.source ~= "time-selection")
+end
+
+--------------------------------------------------------------------------------
+T.suite("The scan reads only the take's own span, not the whole underlying source")
+--------------------------------------------------------------------------------
+do
+  -- A take starting 30 s into a 600 s source and playing 10 s of it: the scan
+  -- must read [30, 40) -- sized off the take's own 10 s extent -- not sized off
+  -- the full 600 s source, which (started at offset 30) would run 30 s past
+  -- what the source actually contains.
+  local get_peaks, calls = fake_peaks_reader(nil, nil, 0.5, 0.5)
+  local reaper = reading_reaper({
+    selected = 1, item = { "item" }, take = { "take" }, item_source = fake_source(600.0),
+    item_info = { D_POSITION = 0.0, D_LENGTH = 10.0 },
+    take_info = { D_STARTOFFS = 30.0, D_PLAYRATE = 1.0 },
+    peaks = get_peaks,
+  })
+  local resolved = source.resolve(reaper)
+  source.noise_region(reaper, resolved)
+
+  T.eq("exactly one scan call was made", #calls, 1)
+  T.near("the scan starts at the take's own start offset, not source time 0",
+    calls[1].starttime, 30.0, 0.0001)
+  T.eq("the scan is sized off the take's 10 s extent, not the 600 s source",
+    calls[1].buckets, math.floor(10.0 * source.SCAN_PEAK_RATE))
+end
+
+--------------------------------------------------------------------------------
+T.suite("The scan's chosen window is reported at its real source-time position")
+--------------------------------------------------------------------------------
+do
+  -- Same 30-40s take. Quiet stretch sits at source time [33, 34) -- bucket
+  -- indices relative to the scan's own start (30), not to source time 0.
+  local rate = source.SCAN_PEAK_RATE
+  local quiet_from = math.floor((33.0 - 30.0) * rate) + 1
+  local quiet_to = math.floor((34.0 - 30.0) * rate) + 1
+  local get_peaks = fake_peaks_reader(quiet_from, quiet_to, 0.5, 0.001)
+  local reaper = reading_reaper({
+    selected = 1, item = { "item" }, take = { "take" }, item_source = fake_source(600.0),
+    item_info = { D_POSITION = 0.0, D_LENGTH = 10.0 },
+    take_info = { D_STARTOFFS = 30.0, D_PLAYRATE = 1.0 },
+    peaks = get_peaks,
+  })
+  local resolved = source.resolve(reaper)
+  local region = source.noise_region(reaper, resolved)
+
+  T.check("a region was found", region ~= nil)
+  T.near("the window is reported at source time ~33s, not shifted back to ~3s",
+    region.start, 33.0, 0.2)
+end
+
+--------------------------------------------------------------------------------
+T.suite("A trimmed item shorter than the minimum window reports, even from a long source")
+--------------------------------------------------------------------------------
+do
+  -- The underlying source is 600 s, but the take itself only plays 0.2 s of it.
+  -- The subject that must clear the minimum is the take, not the source.
+  local reaper = reading_reaper({
+    selected = 1, item = { "item" }, take = { "take" }, item_source = fake_source(600.0),
+    item_info = { D_POSITION = 0.0, D_LENGTH = 0.2 },
+    take_info = { D_STARTOFFS = 30.0, D_PLAYRATE = 1.0 },
+  })
+  local resolved = source.resolve(reaper)
+  local region, why = source.noise_region(reaper, resolved)
+  T.check("no region is invented from the long underlying source", region == nil)
+  T.contains("the take's own 0.2s extent is named, not the 600s source", why.message, "0.20 s")
 end
 
 --------------------------------------------------------------------------------

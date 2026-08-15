@@ -257,6 +257,28 @@ function M.scan_rate(lengthSec)
   return rate
 end
 
+-- The analysis subject's own extent in source time, and where it starts in
+-- source time. For a file this is the whole source, starting at 0. For an item
+-- it is the take's own span -- item_length (project time) run through playrate
+-- -- which is NOT the underlying source's full length: a take trimmed from its
+-- head or tail plays only part of a longer source, and scanning or bounds-
+-- checking against the full source instead of the take's span reads outside
+-- what the take actually plays and reports positions the take doesn't cover.
+local function subject_extent(resolved)
+  if resolved.kind ~= "item" then
+    return resolved.length, 0
+  end
+
+  local rate = (resolved.playrate ~= 0 and resolved.playrate) or 1.0
+  local extent = (resolved.item_length or 0) * rate
+  local start = resolved.start_offset or 0
+  -- Clamp to what's actually left in the source, in case item/take metadata is
+  -- stale relative to the source.
+  local available = resolved.length - start
+  if available > 0 and extent > available then extent = available end
+  return extent, start
+end
+
 -- Read coarse peak magnitudes from Reaper.
 --
 -- THIS IS THE UNVERIFIED SEAM, in the same sense spike 9's CalculateNormalization
@@ -266,19 +288,21 @@ end
 -- Expected layout: numsamplesperchannel * numchannels maxima, followed by the
 -- same count of minima. Magnitude is max(|max|, |min|) per bucket, then the
 -- loudest channel of each bucket, so a quiet window has to be quiet everywhere.
+-- @return peaks|nil, rate, scan_start  scan_start is where bucket 1 sits in
+--   source time -- callers must add it back to any offset rank_windows returns.
 local function read_peaks(reaper, resolved)
   if type(reaper.PCM_Source_GetPeaks) ~= "function" or type(reaper.new_array) ~= "function" then
     return nil
   end
 
-  local rate = M.scan_rate(resolved.length)
-  local buckets = math.max(1, math.floor(resolved.length * rate))
+  local extent, start = subject_extent(resolved)
+  local rate = M.scan_rate(extent)
+  local buckets = math.max(1, math.floor(extent * rate))
   local channels = reaper.GetMediaSourceNumChannels and reaper.GetMediaSourceNumChannels(resolved.source) or 1
   channels = math.max(1, math.min(M.MAX_SCAN_CHANNELS, type(channels) == "number" and channels or 1))
 
   local buf = reaper.new_array(buckets * channels * 2)
-  local got = reaper.PCM_Source_GetPeaks(resolved.source, rate, resolved.start_offset or 0,
-    channels, buckets, 0, buf)
+  local got = reaper.PCM_Source_GetPeaks(resolved.source, rate, start, channels, buckets, 0, buf)
   if type(got) == "number" and got <= 0 then return nil end
 
   local values = buf.table and buf:table() or buf
@@ -293,7 +317,7 @@ local function read_peaks(reaper, resolved)
     end
     peaks[b] = worst
   end
-  return peaks, rate
+  return peaks, rate, start
 end
 
 -- Decide where the noise floor gets measured.
@@ -302,11 +326,12 @@ function M.noise_region(reaper, resolved, opts)
   opts = opts or {}
   local minimum = opts.min_room_tone_sec or M.MIN_ROOM_TONE_SEC
 
-  if resolved.length < minimum then
+  local extent = subject_extent(resolved)
+  if extent < minimum then
     return nil, err.new({
       cause = string.format(
         "the source is %.2f s long, shorter than the %.2f s minimum room-tone window",
-        resolved.length, minimum),
+        extent, minimum),
       fix = "check a longer source, or select a quiet range by hand",
       -- Reported, not fatal: the requirement is explicit that RMS and peak still
       -- come back when only the noise floor cannot be placed.
@@ -320,7 +345,7 @@ function M.noise_region(reaper, resolved, opts)
   local chosen = time_selection_region(reaper, resolved)
   if chosen then return chosen end
 
-  local peaks, rate = read_peaks(reaper, resolved)
+  local peaks, rate, scan_start = read_peaks(reaper, resolved)
   if not peaks or #peaks == 0 then
     return nil, err.new({
       cause = "the source's peak data could not be read, so no room-tone region could be located",
@@ -338,7 +363,9 @@ function M.noise_region(reaper, resolved, opts)
     })
   end
 
-  return { start = start, stop = stop, source = "scan" }
+  -- rank_windows returns times relative to bucket 1, which sits at scan_start
+  -- (the take's start offset) in source time, not at source time 0.
+  return { start = scan_start + start, stop = scan_start + stop, source = "scan" }
 end
 
 -- Exposed for tests.
@@ -346,6 +373,7 @@ M._internal = {
   to_source_time = to_source_time,
   time_selection_region = time_selection_region,
   read_peaks = read_peaks,
+  subject_extent = subject_extent,
 }
 
 return M
