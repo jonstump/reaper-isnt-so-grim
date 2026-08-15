@@ -365,6 +365,27 @@ do
 end
 
 --------------------------------------------------------------------------------
+T.suite("A reversed take's extent is still positive, and a time selection still wins")
+--------------------------------------------------------------------------------
+do
+  -- D_PLAYRATE < 0 means the take plays backwards. It still consumes 10s of
+  -- source material per 10s of project time -- the extent is a magnitude, not
+  -- a direction -- so it must not go negative and spuriously trip the "too
+  -- short" check ahead of an intersecting time selection, which REQ "Noise
+  -- Floor Region Determination" says must win outright.
+  local reaper = reading_reaper({
+    selected = 1, item = { "item" }, take = { "take" }, item_source = fake_source(600.0),
+    item_info = { D_POSITION = 0.0, D_LENGTH = 10.0 },
+    take_info = { D_STARTOFFS = 30.0, D_PLAYRATE = -1.0 },
+    time_selection = { 2.0, 8.0 },
+  })
+  local resolved = source.resolve(reaper)
+  local region = source.noise_region(reaper, resolved)
+  T.check("the time selection wins rather than a spurious too-short error", region ~= nil)
+  T.eq("and it really came from the selection", region.source, "time-selection")
+end
+
+--------------------------------------------------------------------------------
 T.suite("The ranking finds the quietest qualifying window")
 --------------------------------------------------------------------------------
 do

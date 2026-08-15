@@ -264,12 +264,18 @@ end
 -- head or tail plays only part of a longer source, and scanning or bounds-
 -- checking against the full source instead of the take's span reads outside
 -- what the take actually plays and reports positions the take doesn't cover.
+--
+-- Uses |playrate|: a reversed take (negative D_PLAYRATE) still consumes the
+-- same amount of source material per second of project time, just backwards.
+-- The signed rate is for mapping a direction (to_source_time); this is a
+-- magnitude, and a negative extent would make an intersecting time selection
+-- lose to a spurious "too short" error below instead of winning outright.
 local function subject_extent(resolved)
   if resolved.kind ~= "item" then
     return resolved.length, 0
   end
 
-  local rate = (resolved.playrate ~= 0 and resolved.playrate) or 1.0
+  local rate = math.abs((resolved.playrate ~= 0 and resolved.playrate) or 1.0)
   local extent = (resolved.item_length or 0) * rate
   local start = resolved.start_offset or 0
   -- Clamp to what's actually left in the source, in case item/take metadata is
