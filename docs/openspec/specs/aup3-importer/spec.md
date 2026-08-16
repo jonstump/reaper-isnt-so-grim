@@ -67,7 +67,9 @@ This holds on every exit path, including failures and interruptions.
 
 ### Requirement: Conversion Scope
 
-The importer SHALL convert tracks, clips, clip positions, per-track gain, and audio. It MUST NOT convert envelopes, effects, or labels.
+The importer SHALL convert tracks, clips, clip **names**, clip positions, per-track gain, and audio. It MUST NOT convert envelopes, effects, or labels.
+
+Clip names are called out explicitly because they are load-bearing rather than decorative. The narrator's retake workflow is to cut a flubbed passage onto a second track and rename that clip with the opening words of the line, then search the manuscript for that text when re-recording. A conversion that dropped names would preserve every sample and still destroy the workflow.
 
 Anything present in the source project but outside this scope MUST be reported to the user by category, with a count — never silently dropped. The report is what tells the user whether the converted project is the whole story.
 
@@ -91,6 +93,11 @@ This is the requirement the whole tool is judged by: the user's test is opening 
 
 - **WHEN** a project with several tracks, each holding clips at known offsets, is converted
 - **THEN** every clip appears on the corresponding track in the `.rpp` at its source start time, within one sample period
+
+#### Scenario: Named clips
+
+- **WHEN** a source clip carries a name
+- **THEN** the corresponding item in the `.rpp` carries that name unchanged
 
 #### Scenario: Track order preserved
 

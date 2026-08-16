@@ -25,7 +25,7 @@ Two facts about the user shape everything below. The input projects are years of
 ### Non-Goals
 
 - **Round-tripping.** This converts Audacity → Reaper. There is no path back, and building one would double the format surface for a user who is leaving Audacity.
-- **Envelopes, effects, and labels.** Effects do not transfer meaningfully anyway — that is what Phase 1's FX chains are for. Labels are the first upgrade to consider for v1.1, since narrators use them for pickup points.
+- **Envelopes, effects, and labels.** Effects do not transfer meaningfully anyway — that is what Phase 1's FX chains are for. Labels were filed as the first v1.1 upgrade on the assumption that narrators use them for pickup points; **that assumption is wrong for this narrator** — see below.
 - **Fidelity to Audacity's rendering.** The goal is the user's material placed correctly, not a bit-exact reproduction of what Audacity would have played.
 - **A GUI.** A CLI the user runs a handful of times, once per old project.
 - **Recovering damaged projects.** `audacity-project-tools` exists for that; this importer assumes a readable project and refuses otherwise.
@@ -34,9 +34,13 @@ Two facts about the user shape everything below. The input projects are years of
 
 ### Read-only enforced by the database, not by discipline
 
-**Choice**: Open the project with SQLite's read-only URI mode so that any write attempt fails at the database layer.
+**Choice**: Open the project with `?mode=ro&immutable=1` so that writes fail at the database layer *and* SQLite's WAL machinery is bypassed entirely.
 
-**Rationale**: "We don't write to it" is a property that decays — one debugging session that opens the connection normally is enough. Enforcement at the connection makes the guarantee structural, and it also prevents SQLite from creating journal or write-ahead files beside the source, which is a subtler way of modifying the user's directory. This mirrors what SPEC-0001 does for ACX Check's read-only requirement, where the guarantee is enforced by a test stub rather than asserted in prose.
+**Rationale**: "We don't write to it" is a property that decays — one debugging session that opens the connection normally is enough. Enforcement at the connection makes the guarantee structural. This mirrors what SPEC-0001 does for ACX Check's read-only requirement, where the guarantee is enforced by a test stub rather than asserted in prose.
+
+**Corrected 2026-08-16 by the fixtures.** An earlier draft specified `mode=ro` alone and claimed it "prevents SQLite from creating journal or write-ahead files beside the source". It does not. Audacity writes `.aup3` in WAL journal mode, and SQLite cannot read a WAL database without its `-shm` shared-memory file — so a `mode=ro` connection either creates `-wal`/`-shm` next to the project or fails to open outright. Both behaviours were observed on the reference fixtures. The main file's checksum survived either way, but files appearing beside a project we promised not to touch is REQ "Input Immutability" broken, not a technicality. `immutable=1` closes it: verified against both fixtures reading fully, checksums unchanged, nothing created.
+
+The cost is a precondition worth stating plainly rather than burying: `immutable=1` asserts the file will not change while open, so the importer must not be pointed at a project Audacity currently has open. For a converter run against saved projects that holds, and the alternative — copying a multi-gigabyte project before reading it — is worse.
 
 **Alternatives considered**:
 - *Copy the file first, work on the copy*: rejected as the primary mechanism — these projects are large, and doubling disk usage per conversion is a real cost. It remains available as a user-side precaution.
@@ -143,5 +147,9 @@ Sequencing is gated rather than chosen: nothing beyond scaffolding can be built 
 - **How is the importer distributed?** ADR-0001 covers the config zip and ReaPack for the Reaper scripts. Neither channel fits a standalone Python CLI, and nothing currently decides this. Likely needs a short ADR — the plausible options are a single-file script in the repo, a PyPI package, or leaving it as "clone and run".
 - **What is the placement tolerance in practice?** SPEC-0002 says one sample period. Whether Audacity expresses clip positions in samples or in seconds determines whether that is exact or merely tight, and that is a format fact awaiting inspection.
 - **Does the user's Audacity version matter?** `.aup3` has existed since Audacity 3.0 and the schema may have shifted across releases. The reference request should establish which version produced the projects.
-- **Are labels worth pulling forward to v1?** `PLAN.md` files them as a v1.1 candidate mapping to Reaper markers, and notes narrators use them for pickup points and corrections. If the user's projects lean on labels heavily, the case for v1 gets stronger — an answerable question once the fixtures arrive.
+- ~~**Are labels worth pulling forward to v1?**~~ **Answered 2026-08-16: no — and clip names matter instead.** Asked directly whether he uses labels for pickups or corrections, he described a different workflow entirely: he creates a track below the current one, cuts the passage needing a retake down onto it, and **renames that clip** with the opening words of the line. Back in the booth he searches the manuscript for that text and records the fixes in order. `Ctrl+F2 RenameClip` is in his keymap; `AddLabel` is bound only because it is an Audacity default. Neither fixture contains a `labeltrack`.
+
+  So the v1.1 label priority is wrong twice over. Labels are worth *less* than assumed, and `waveclip/@name` is worth far more — it is not decoration, it is the index he navigates his own retakes by. Losing clip names on import would silently destroy the workflow he described in the most detail.
+
+  Fortunately the scope already covers it: clips are in v1, `waveclip/@name` is `FORMAT.md` claim 23, and both fixtures carry it (`'Audio Track #1'`). What changes is that clip names move from incidental metadata to a **load-bearing** part of the conversion, and REQ "Timeline Placement Fidelity" should say so rather than leaving it implied by "clips".
 - **Multi-clip tracks and cross-fades.** Whether Audacity's clip model maps cleanly onto Reaper items, or whether adjacent clips carry implicit behaviour that needs representing, is unknown until a real project is inspected.

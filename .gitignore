@@ -1,2 +1,16 @@
 .sdd/
 .qmd/
+
+# Reference material from the Audacity reference request.
+# Audio stays out of version control entirely (docs/audacity-reference-request.md);
+# .aup3 fixtures are deliberately NOT ignored — they may be committed once their
+# provenance is confirmed under ADR-0005 (original or public-domain, contributed
+# under the repository licence, recorded in the fixture README).
+*.zip
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aiff
+*.aif
+reference/

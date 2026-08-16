@@ -1,4 +1,4 @@
-<!-- Governing: ADR-0005 (strict clean room for `.aup3` reverse engineering),
+<!-- Governing: ADR-0005 (clean room for everything derived from Audacity),
      SPEC-0002 REQ "Clean-Room Format Derivation" -->
 
 # `.aup3` format notes
@@ -18,10 +18,34 @@ this knowledge came from, this page is the answer. Reconstructing it later is
 close to impossible, which is why it is maintained while the knowledge is being
 acquired rather than afterwards.
 
-**Status: prose survey only.** Nothing below has been confirmed against a real
-`.aup3` file — none have arrived yet (see `docs/audacity-reference-request.md`,
-items D2/D1). Every entry is therefore a *claim* with a source, not a verified
-fact. The `Verified` column is what changes when fixtures land.
+**Status: verified against real projects.** The fixtures arrived on 2026-08-16
+(`docs/audacity-reference-request.md`, item D2). Twenty-four of the twenty-six
+claims below are now confirmed against `D2.aup3` and `D2 v2.aup3`, both written
+by **Audacity 3.1.3**; the other two are simply not exercised by those files.
+The document blob of both parses to the last byte with a from-scratch reader,
+[`scripts/dev/aup3_dump.py`](../scripts/dev/aup3_dump.py) — which is the real
+evidence, since a parser that consumes 3008 of 3008 bytes has not guessed.
+
+Run it yourself rather than trusting the table:
+
+```
+python3 scripts/dev/aup3_dump.py path/to/project.aup3
+```
+
+### Fixture provenance
+
+Required by ADR-0005 before any fixture is committed.
+
+| Fixture | Source | Audacity | Content confirmed original / public domain |
+|---|---|---|---|
+| `D2.aup3` | Reference request item D2, provided by the narrator | 3.1.3 | **not yet confirmed in writing** |
+| `D2 v2.aup3` | Reference request item D2 | 3.1.3 | **not yet confirmed in writing** |
+
+The request document asked for throwaway reads of public-domain text rather than
+client work, and the fixtures are short, but ADR-0005 makes the confirmation a
+repository rule rather than an inference. **Neither file is committed** until that
+confirmation exists in the fixture README. They currently live outside the
+repository and `.gitignore` covers the archive and all audio.
 
 ## The rule, restated
 
@@ -50,20 +74,24 @@ not one of them.
 
 ## Claims
 
-`Verified` is `no` for everything until a real project can be opened and checked.
+**Verified against real projects on 2026-08-16** — `D2.aup3` and `D2 v2.aup3` from the reference
+request, both written by Audacity 3.1.3. `yes` means confirmed against those files; `n/a` means the
+fixtures do not exercise it. Method: `sqlite3 <file> .schema`, direct SQL over the tables, and a
+from-scratch parser for the document blob (`scripts/dev/aup3_dump.py`) that consumed both documents
+to the last byte.
 
 | # | Claim | Source | Verified |
 |---|---|---|---|
-| 1 | `.aup3` is a single SQLite3 database. Audacity 3.0.0 moved from "a pile of files" to storing everything in one file. | Audacity Team, 3.0.0 release announcement, quoted in the [SQLite user forum](https://sqlite.org/forum/info/496b68a88a88e5c0) | no |
-| 2 | There is an `autosave` table holding project state written after each user action, as a serialized blob. | [audacity-project-tools README](https://github.com/audacity/audacity-project-tools) | no |
-| 3 | There is a `project` table holding the project state as written on an explicit save. | audacity-project-tools README; independently stated by forum moderator *steve* with a screenshot of the table, [Audacity Forum thread 61618](https://forum.audacityteam.org/t/request-aup3-and-or-sqlite-documentation/61618) | no |
-| 4 | `autosave` and `project` share the same schema: **two blobs**. One is "dictionary" data — a list of tag and attribute names. The second holds the project structure. | audacity-project-tools README | no |
-| 5 | The project structure blob is **binary, not text**. | *steve*, Audacity Forum thread 61618 ("the project table contains the project structure in binary format"), consistent with claim 4's dictionary indirection | no |
-| 6 | In a cleanly closed project, `autosave` is normally empty. | *steve*, Audacity Forum thread 61618 | no |
-| 7 | There is a `sampleblocks` table holding the audio data. | audacity-project-tools README; *steve*, thread 61618 | no |
-| 8 | Sample blocks are up to ~1 MB each. | audacity-project-tools README | no |
-| 9 | A block holds roughly 5 seconds of mono audio at default settings. | audacity-project-tools README | no |
-| 10 | **Audacity never updates a block in place.** When data changes it writes a new block, so block IDs are not necessarily sequential and stale blocks may persist. | audacity-project-tools README | no |
+| 1 | `.aup3` is a single SQLite3 database. Audacity 3.0.0 moved from "a pile of files" to storing everything in one file. | Audacity Team, 3.0.0 release announcement, quoted in the [SQLite user forum](https://sqlite.org/forum/info/496b68a88a88e5c0) | **yes** |
+| 2 | There is an `autosave` table holding project state written after each user action, as a serialized blob. | [audacity-project-tools README](https://github.com/audacity/audacity-project-tools) | **yes** |
+| 3 | There is a `project` table holding the project state as written on an explicit save. | audacity-project-tools README; independently stated by forum moderator *steve* with a screenshot of the table, [Audacity Forum thread 61618](https://forum.audacityteam.org/t/request-aup3-and-or-sqlite-documentation/61618) | **yes** |
+| 4 | `autosave` and `project` share the same schema: **two blobs**. One is "dictionary" data — a list of tag and attribute names. The second holds the project structure. | audacity-project-tools README | **yes** |
+| 5 | The project structure blob is **binary, not text**. | *steve*, Audacity Forum thread 61618 ("the project table contains the project structure in binary format"), consistent with claim 4's dictionary indirection | **yes** |
+| 6 | In a cleanly closed project, `autosave` is normally empty. | *steve*, Audacity Forum thread 61618 | **yes** |
+| 7 | There is a `sampleblocks` table holding the audio data. | audacity-project-tools README; *steve*, thread 61618 | **yes** |
+| 8 | Sample blocks are up to ~1 MB each. | audacity-project-tools README | **yes** |
+| 9 | A block holds roughly 5 seconds of mono audio at default settings. | audacity-project-tools README | **yes** |
+| 10 | **Audacity never updates a block in place.** When data changes it writes a new block, so block IDs are not necessarily sequential and stale blocks may persist. | audacity-project-tools README | **yes** |
 
 ### Claims from `audacity-project-tools`
 
@@ -79,22 +107,66 @@ the upstream copyright and licence text travel with it.
 
 | # | Claim | Where in the source | Verified |
 |---|---|---|---|
-| 11 | The SQLite `application_id` for an `.aup3` project is `1096107097`. | `AudacityDatabase.cpp`, `AudacityProjectID` | no |
-| 12 | Project version is packed as `major<<24 \| minor<<16 \| patch<<8 \| build`. The tool supports up to `3.7.0.0`. | `AudacityDatabase.cpp`, `MaxSupportedVersion` | no |
-| 13 | `project` and `autosave` each hold the document in **two columns**: `dict` and `doc`, at row `id = 1`. | `ProjectBlobReader.cpp` | no |
-| 14 | `dict` and `doc` are **concatenated in that order** and parsed as one continuous stream. | `ProjectBlobReader.cpp`, `ReadProjectBlob` | no |
-| 15 | The stream is **not compressed**. It is read raw and parsed directly. | `ProjectBlobReader.cpp` → `BinaryXMLConverter.cpp`, no decompression stage between them | no |
-| 16 | The document is a **tagged binary stream**. Each field opens with a `uint8` type tag from a 16-value set: `CharSize, StartTag, EndTag, String, Int, Bool, Long, LongLong, SizeT, Float, Double, Data, Raw, Push, Pop, Name`. | `BinaryXMLConverter.cpp`, `FieldTypes` | no |
-| 17 | Tag and attribute names are **interned**: `FT_Name` carries `ID + length + name`, and every other field references a name by numeric ID. This is what the `dict` blob holds. | `BinaryXMLConverter.cpp`, `FieldTypes` layout comments | no |
-| 18 | A `CharSize` field sets the byte-width used for subsequent string reads — string encoding is not fixed and must be read from the stream. | `BinaryXMLConverter.cpp`, `Stream::setCharSize` / `readString` | no |
-| 19 | `sampleblocks` has at least the columns `blockid`, `sampleformat`, and `samples`. | `ProjectModel.cpp` queries | no |
-| 20 | Sample formats are `int16` / `int24` / `float`, encoded as `0x00020001`, `0x00040001`, `0x0004000F`. | `SampleFormat.h`, `SampleFormat.cpp` | no |
-| 21 | **`int24` occupies 3 bytes in memory but 4 bytes on disk.** `int16` is 2/2, `float` is 4/4. | `SampleFormat.cpp`, `BytesPerSample` vs `DiskBytesPerSample` | no |
-| 22 | Document structure is `wavetrack` → `waveclip` → `sequence` → `waveblock`. | `ProjectModel.cpp` | no |
-| 23 | `wavetrack` carries `name` and `rate` (int). `sequence` carries `maxsamples`, `numsamples` (int64) and `sampleformat`. `waveblock` carries `start` (int64) and `blockid` (int64). `waveclip` carries `offset`, `trimLeft`, `trimRight` (all double) and `name`. | `ProjectModel.cpp` attribute parsing; `ProjectModel.h` field types | no |
-| 24 | **Positions use two different units.** `waveclip/@offset` is in **seconds** (double); `waveblock/@start` is a **sample index** within its sequence (int64). | `ProjectModel.h` field types | no |
-| 25 | **A negative `blockid` means silence** — a block with no stored samples. | `ProjectModel.cpp`, `WaveBlock::isSilence` | no |
-| 26 | Clips carry `trimLeft` / `trimRight` — the audible region is a subrange of the underlying sequence, not the whole of it. | `ProjectModel.cpp`, `WaveClip` attribute parsing | no |
+| 11 | The SQLite `application_id` for an `.aup3` project is `1096107097`. | `AudacityDatabase.cpp`, `AudacityProjectID` | **yes** |
+| 12 | Project version is packed as `major<<24 \| minor<<16 \| patch<<8 \| build`. The tool supports up to `3.7.0.0`. | `AudacityDatabase.cpp`, `MaxSupportedVersion` | **yes** |
+| 13 | `project` and `autosave` each hold the document in **two columns**: `dict` and `doc`, at row `id = 1`. | `ProjectBlobReader.cpp` | **yes** |
+| 14 | `dict` and `doc` are **concatenated in that order** and parsed as one continuous stream. | `ProjectBlobReader.cpp`, `ReadProjectBlob` | **yes** |
+| 15 | The stream is **not compressed**. It is read raw and parsed directly. | `ProjectBlobReader.cpp` → `BinaryXMLConverter.cpp`, no decompression stage between them | **yes** |
+| 16 | The document is a **tagged binary stream**. Each field opens with a `uint8` type tag from a 16-value set: `CharSize, StartTag, EndTag, String, Int, Bool, Long, LongLong, SizeT, Float, Double, Data, Raw, Push, Pop, Name`. | `BinaryXMLConverter.cpp`, `FieldTypes` | **yes** |
+| 17 | Tag and attribute names are **interned**: `FT_Name` carries `ID + length + name`, and every other field references a name by numeric ID. This is what the `dict` blob holds. | `BinaryXMLConverter.cpp`, `FieldTypes` layout comments | **yes** |
+| 18 | A `CharSize` field sets the byte-width used for subsequent string reads — string encoding is not fixed and must be read from the stream. | `BinaryXMLConverter.cpp`, `Stream::setCharSize` / `readString` | **yes** |
+| 19 | `sampleblocks` has at least the columns `blockid`, `sampleformat`, and `samples`. | `ProjectModel.cpp` queries | **yes** |
+| 20 | Sample formats are `int16` / `int24` / `float`, encoded as `0x00020001`, `0x00040001`, `0x0004000F`. | `SampleFormat.h`, `SampleFormat.cpp` | **yes** |
+| 21 | **`int24` occupies 3 bytes in memory but 4 bytes on disk.** `int16` is 2/2, `float` is 4/4. | `SampleFormat.cpp`, `BytesPerSample` vs `DiskBytesPerSample` | n/a |
+| 22 | Document structure is `wavetrack` → `waveclip` → `sequence` → `waveblock`. | `ProjectModel.cpp` | **yes** |
+| 23 | `wavetrack` carries `name` and `rate` (int). `sequence` carries `maxsamples`, `numsamples` (int64) and `sampleformat`. `waveblock` carries `start` (int64) and `blockid` (int64). `waveclip` carries `offset`, `trimLeft`, `trimRight` (all double) and `name`. | `ProjectModel.cpp` attribute parsing; `ProjectModel.h` field types | **yes** |
+| 24 | **Positions use two different units.** `waveclip/@offset` is in **seconds** (double); `waveblock/@start` is a **sample index** within its sequence (int64). | `ProjectModel.h` field types | **yes** |
+| 25 | **A negative `blockid` means silence** — a block with no stored samples. | `ProjectModel.cpp`, `WaveBlock::isSilence` | n/a |
+| 26 | Clips carry `trimLeft` / `trimRight` — the audible region is a subrange of the underlying sequence, not the whole of it. | `ProjectModel.cpp`, `WaveClip` attribute parsing | **yes** |
+
+### Claims from the fixtures themselves
+
+Established 2026-08-16 by inspecting `D2.aup3` and `D2 v2.aup3` directly. These
+are the strongest provenance in this file — the source is the format, not a
+description of it.
+
+| # | Claim | How established | Verified |
+|---|---|---|---|
+| 27 | Full `sampleblocks` schema: `blockid INTEGER PRIMARY KEY AUTOINCREMENT, sampleformat INTEGER, summin REAL, summax REAL, sumrms REAL, summary256 BLOB, summary64k BLOB, samples BLOB`. | `sqlite3 D2.aup3 .schema` | **yes** |
+| 28 | **Summary data lives in `sampleblocks`** — per-block `summin`/`summax`/`sumrms` scalars plus `summary256` and `summary64k` blobs. This closes an open question; the answer was in the table all along. | `.schema`, and non-null values in both fixtures | **yes** |
+| 29 | `PRAGMA application_id` returns `1096107097`, confirming claim 11 from the file rather than from source. | `PRAGMA application_id` | **yes** |
+| 30 | `PRAGMA user_version` returns `50331648` = `0x03000000`, decoding to **3.0.0.0** under claim 12's packing. Note this is the *format* version, not the writing application's — both fixtures were written by Audacity 3.1.3. | `PRAGMA user_version` | **yes** |
+| 31 | **`.aup3` is written in WAL journal mode.** This has direct consequences for reading it safely — see the immutability finding below. | `PRAGMA journal_mode` | **yes** |
+| 32 | Field widths are **not uniform**: name IDs are `uint16`; `FT_Name`'s length is `uint16`; `FT_String`/`FT_Data`/`FT_Raw` lengths are `uint32`. All lengths count **bytes, not characters**. All little-endian. | Parser fails to consume the stream under any other combination; succeeds exactly under this one | **yes** |
+| 33 | `FT_CharSize` was `4` on both fixtures — UTF-32LE strings. It is written into the file because it is platform-dependent, so it MUST be read rather than assumed. | `aup3_dump.py` | **yes** |
+| 34 | The `doc` blob carries no `CharSize` of its own; it inherits from `dict`. This is why claim 14's concatenation is a requirement and not a convenience. | Parsing `doc` alone fails immediately on the first string | **yes** |
+| 35 | The document opens with `FT_Raw` fields carrying a literal XML prologue and DTD reference (`audacityproject-1.3.0.dtd`), then switches to interned tags. A reader must handle both. | `aup3_dump.py --raw` | **yes** |
+| 36 | `project` root carries `rate`, `sel0`/`sel1` (the time selection, in seconds), `zoom`, `audacityversion`, and formatting preferences. | `aup3_dump.py` | **yes** |
+| 37 | `wavetrack` also carries `isSelected`, `height`, `minimized`, `linked`, `mute`, `solo`, `pan`, and `colorindex` beyond the attributes in claim 23. `channel = 2` denotes a mono track. | `aup3_dump.py` | **yes** |
+| 38 | Default `maxsamples` is `262144` — exactly 1 MiB at float32, which is what claim 8's "~1 MB" actually means. | `aup3_dump.py` | **yes** |
+| 39 | `samples` blob length equals `numsamples × bytes-per-sample` exactly: block 4 holds 215225 samples in 860900 bytes at float32. The blob is **raw PCM with no header or framing**. | Cross-checking `length(samples)` against decoded `start` values | **yes** |
+| 40 | An `envelope` element sits inside `waveclip` (`numpoints=0` on both fixtures). v1 excludes envelopes, so it must be **skipped deliberately** rather than tripping the unrecognized-structure refusal. | `aup3_dump.py` | **yes** |
+| 41 | Neither fixture contains a `labeltrack`. Consistent with the narrator's own answer that he does not use labels — see the scope finding below. | `aup3_dump.py` on both | **yes** |
+
+### `mode=ro` is not sufficient for immutability
+
+The most consequential fixture finding, and it contradicts this project's own
+design note.
+
+`SPEC-0002` REQ "Input Immutability" forbids creating "journal or write-ahead
+files beside" the source, and `design.md` claimed opening with SQLite's `mode=ro`
+delivered that. **It does not.** Because `.aup3` is WAL-mode (claim 31), SQLite
+needs the `-shm` shared-memory file to read it, and a `mode=ro` connection either
+creates `-wal`/`-shm` next to the project or fails to open outright. Both were
+observed on these fixtures. The main file's checksum was unchanged either way —
+but files appearing beside a project we promised not to touch is the requirement
+broken, not a technicality.
+
+`?mode=ro&immutable=1` is the fix: SQLite treats the file as unchanging, bypasses
+the WAL machinery, and creates nothing. Verified — both fixtures read fully, SHA
+unchanged, zero side files. The precondition is that Audacity must not have the
+project open at the time, which is reasonable for an importer and must be stated
+rather than assumed.
 
 ### Three of these will silently corrupt a naive importer
 
@@ -128,89 +200,26 @@ Recording these so nobody later wonders whether the trail was missed or refused.
 The prose survey did not answer these. Each is a candidate for file inspection
 once fixtures arrive, and several are load-bearing for SPEC-0002.
 
-Most of the original list was answered by claims 11–26. What is left:
+The fixtures closed most of what remained. What is still open:
 
-- **Byte-level widths inside the tagged stream.** Claim 16 gives the field types
-  and their layouts; it does not give how wide an ID is, or a length prefix, or
-  whether values are little-endian. Reading `Stream::read<T>` more closely, or
-  inspecting a real blob, resolves this. This is the last thing between here and
-  a working parser.
-- **Channel interleaving and endianness inside a `samples` blob.** Claims 20–21
-  give the formats and their disk widths, but not whether a stereo block
-  interleaves or whether each channel is its own sequence. The `wavetrack` /
-  `channel` attribute suggests the latter — unconfirmed.
-- **Where summary/peak data lives.** Still open. `audacity-project-tools` reads
-  only `sampleformat` and `samples` from `sampleblocks`, so if summary columns
-  exist it does not touch them. Not load-bearing for the importer — Reaper builds
-  its own peaks — so this can stay open.
-- **How multi-clip tracks and any implicit cross-fade behaviour are represented.**
-  Claims 22 and 26 give the containment and trimming model, which is most of it;
-  whether adjacent clips carry implicit behaviour is still unknown.
-- **Whether the schema changed across 3.x releases.** Partly answered by claim 12
-  — a version is stored and packed in a known way, and the tool declares support
-  through 3.7.0.0 — but not *what* changed between versions.
-- **The `autosave` / `project` interaction in practice.** Claim 6 says `autosave`
-  is normally empty in a cleanly-closed project. What an importer should do when
-  it is *not* empty — crash recovery state, presumably newer than `project` — is
-  a design question the spec does not yet answer.
-
-## Corrections this survey produced
-
-The survey was worth doing before writing code: it contradicted two things the
-project had already written down.
-
-### `audacity-project-tools` is BSD-3-Clause, not GPL
-
-ADR-0005 states:
-
-> This extends to GPL-licensed tooling built on Audacity's codebase, including
-> `audacity-project-tools`. Its *behaviour* may be observed; its source may not
-> be read.
-
-The premise is wrong. GitHub's repository metadata reports the project as
-**BSD-3-Clause** (`gh api repos/audacity/audacity-project-tools --jq .license`),
-which is permissive and MIT-compatible, requiring attribution rather than
-copyleft reciprocity.
-
-**Resolved 2026-08-15: ADR-0005 was amended and the restriction lifted for this
-tool.** The open question was whether its *declared* licence matched its actual
-composition — a permissive licence on a project that vendors GPL code would not
-make the GPL code permissive. Checked, via repository metadata only:
-
-| Check | Result |
-|---|---|
-| Declared licence | BSD-3-Clause (GitHub repository metadata) |
-| Git submodules | none |
-| Vendored third-party code (`3party/`) | SQLite only |
-| Dependency manifest (`conanfile.txt`) | fmt, sqlite3, SQLiteCpp, gflags, utfcpp, boost — no Audacity |
-| Size and shape | 16 files in `src/`; an independent reimplementation, not a fork |
-
-So it is lawful to read for an MIT project, with attribution. ADR-0005's permitted
-sources now include permissively-licensed implementations meeting exactly this
-test, and Audacity's own source remains as forbidden as it was.
-
-`src/` filenames alone — read as metadata, no file opened — indicate the tool
-implements `ProjectBlobReader`, `BinaryXMLConverter`, `SampleFormat`, and
-`WaveFile`. That is close to a one-to-one map onto the Unresolved list above,
-which is why this correction matters more than a licence footnote usually would.
-
-Nothing has been read yet. When it is, each fact taken lands in Claims with the
-tool, the version, and what was taken.
-
-### The project document is not XML
-
-`PLAN.md:90` describes `.aup3` as "a SQLite database containing the project XML
-plus audio sample blocks", and SPEC-0002's `design.md` calls reading the project
-document "a well-understood text problem".
-
-Claims 4 and 5 contradict both. The project structure is a binary blob paired
-with a name dictionary — closer to a serialised object graph than to a text
-document. The `.aup` format that preceded it *was* XML, which is the likely origin
-of the confusion.
-
-This matters for planning, not just accuracy: it moves decoding the project
-document out of the "easy half" and next to sample-block decoding in difficulty.
-Both `PLAN.md` and `design.md` should be corrected.
+- **`int24` and `int16` handling is unexercised** (claims 20–21). Both fixtures
+  are float32 throughout, so the 3-bytes-in-memory / 4-bytes-on-disk asymmetry —
+  the trap most likely to corrupt audio silently — has never been run against
+  real data. A fixture recorded at 24-bit would settle it.
+- **Silent blocks are unexercised** (claim 25). Neither fixture contains a
+  negative `blockid`, so the silence convention is still second-hand.
+- **Channel layout for stereo is unknown.** Both fixtures are mono
+  (`channel = 2`). Whether a stereo pair interleaves within one block or uses
+  paired `wavetrack` elements with `linked` set is untested.
+- **`summary256` / `summary64k` internal layout.** Claims 27–28 establish that
+  they exist and are populated; their structure is undecoded. Not load-bearing —
+  Reaper builds its own peaks — so this can stay open indefinitely.
+- **What an importer should do when `autosave` is non-empty.** Both fixtures have
+  it empty, matching claim 6. A crash-recovery state newer than `project` is a
+  design question SPEC-0002 does not yet answer.
+- **Schema drift across 3.x.** Both fixtures are 3.1.3 and report format version
+  3.0.0.0. Whether newer Audacity writes a different `user_version`, and what
+  changes with it, is untested.
 
 ## Attribution
 
