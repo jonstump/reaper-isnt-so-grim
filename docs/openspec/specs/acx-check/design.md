@@ -87,11 +87,20 @@ Note that no source code exists yet. This design describes the intended shape ra
 
 **Rationale**: An analysis tool that moves the edit cursor or adds an undo step teaches the user that running it has consequences, which discourages running it. It should be as consequence-free as looking at a waveform. The undo-history clause is explicit because ReaScript can create undo points as a side effect of otherwise harmless calls.
 
-### Two channels beyond colour for pass/fail
+### Two channels beyond colour, across three states
 
-**Choice**: Every row carries a glyph and text in addition to colouring.
+**Choice**: Every row carries a glyph and text in addition to colouring, for each of pass, warning, and fail.
 
-**Rationale**: ADR-0004 chose `gfx` specifically so colour could make pass/fail readable pre-attentively. Red–green colour vision deficiency affects roughly one in twelve men, and pass/fail is this report's primary signal — so colour must be an accelerator, never the carrier. `PLAN.md`'s own mockup already uses ✓/✗ glyphs, so this costs nothing.
+**Rationale**: ADR-0004 chose `gfx` specifically so colour could make status readable pre-attentively. Red–green colour vision deficiency affects roughly one in twelve men, and status is this report's primary signal — so colour must be an accelerator, never the carrier. `PLAN.md`'s own mockup already uses ✓/✗ glyphs, so this costs nothing for two of the three.
+
+**Revised 2026-08-16.** This was written as a two-state decision. His ACX Check screenshots show three — `Peak level: −14.92 dB Warning (too low - may be overly compressed or too quiet.)` — so the report needs a third presentation that is distinct from **both** others rather than a variant of either. That last part is the design constraint doing real work: a warning glyph shaped like a softened ✗ reads as a failure at a glance, and one shaped like a hollow ✓ reads as a pass. Neither is acceptable when the whole point of the third state is that it means something different from both.
+
+The three states are also semantically ordered in a way the presentation should respect: pass and warning are both *deliverable*, fail is not. The visual grouping should not imply that warning sits closer to fail than to pass, because for the narrator's actual decision — submit or re-record — it does not.
+
+**Alternatives considered**:
+- *Fold warning into pass, with advisory text*: rejected — it works visually but loses the pre-attentive signal, which is the reason ADR-0004 chose `gfx` at all. He would have to read the row to discover there was anything to read.
+- *Fold warning into fail*: rejected outright. It would tell him a submittable file is broken, which is worse than saying nothing.
+- *A separate advisory line, as true peak uses*: rejected — true peak is advisory about a *different measurement*, whereas a low peak is a qualified verdict on the peak row itself. Putting it elsewhere would divorce the caveat from the number it qualifies.
 
 ## Architecture
 

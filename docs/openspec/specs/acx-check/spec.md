@@ -94,6 +94,22 @@ The headline peak measurement SHALL be **sample peak**, matching the convention 
 
 True peak MUST also be computed. True peak MUST NOT determine pass or fail. When true peak exceeds sample peak by a configured margin, the report MUST show true peak as a clearly labeled secondary advisory line.
 
+**Peak is not a ceiling-only test.** ACX specifies −3 dBFS as a maximum, but Audacity's ACX Check additionally warns when sample peak is *too low*, on the grounds that it signals over-compression or an under-recorded take. The capability MUST reproduce that warning, because the narrator reads it today and a check that silently drops it is less useful than the tool he is leaving.
+
+A sample peak below the configured low-peak threshold MUST be reported as a **warning**, not a failure: the file still satisfies ACX's stated requirement, so it MUST NOT be presented as rejectable. The threshold SHALL live in the same named threshold table as every other value, per REQ "Threshold Configuration".
+
+The exact value Audacity warns at is not yet established — a single observed data point is not a boundary — so it MUST be recovered by controlled observation and recorded before release, per REQ "Measurement Validation".
+
+#### Scenario: Sample peak below the low-peak threshold
+
+- **WHEN** sample peak is at or below the maximum but below the configured low-peak threshold
+- **THEN** the peak row is reported as a warning, naming the measured value and explaining that the recording may be over-compressed or too quiet, and is not reported as a failure
+
+#### Scenario: Sample peak comfortably within range
+
+- **WHEN** sample peak is at or below the maximum and at or above the low-peak threshold
+- **THEN** the peak row is reported as passing
+
 #### Scenario: True peak close to sample peak
 
 - **WHEN** true peak exceeds sample peak by less than the advisory margin
@@ -195,24 +211,41 @@ The window MUST be dismissible by pressing Escape and by closing the window. The
 
 ### Requirement: Status Indication Without Reliance on Colour
 
-Pass and fail status SHALL be conveyed through at least two independent channels in addition to colour: a distinct glyph per state, and text.
+Measurement status SHALL be conveyed through at least two independent channels in addition to colour: a distinct glyph per state, and text.
 
-The report MUST NOT rely on colour as the sole differentiator between passing and failing measurements. Red–green colour vision deficiency is common, and the pass/fail distinction is the report's primary signal.
+The report MUST NOT rely on colour as the sole differentiator between states. Red–green colour vision deficiency is common, and status is the report's primary signal.
+
+There are **three** reportable states, and they carry different meanings that MUST NOT be collapsed into one another:
+
+| State | Meaning |
+|---|---|
+| **Pass** | The measurement satisfies its threshold. |
+| **Warning** | The measurement satisfies ACX's stated requirement but merits human attention — currently a sample peak below the low-peak threshold, per REQ "Peak Measurement Convention". |
+| **Fail** | The measurement violates its threshold and the file would be rejected. |
+
+Flattening a warning into a pass hides a real signal; flattening it into a failure tells the narrator a deliverable file is broken. Each state MUST therefore be distinguishable from **both** others, not merely from its neighbour — a warning glyph that reads as a variant of either pass or fail defeats the requirement.
+
+A fourth presentation state, unavailable, already exists for measurements that could not be produced (per REQ "Error Handling Standards"); it is not a status verdict and is unaffected by this requirement.
 
 #### Scenario: Failing measurement
 
 - **WHEN** a measurement falls outside its threshold
 - **THEN** its row shows a failure glyph, failure text, and failure colouring
 
+#### Scenario: Warning measurement
+
+- **WHEN** a measurement satisfies its threshold but falls within a warning band
+- **THEN** its row shows a warning glyph, warning text, and warning colouring, each distinct from both the passing and the failing presentation
+
 #### Scenario: Passing measurement
 
-- **WHEN** a measurement falls within its threshold
+- **WHEN** a measurement falls within its threshold and outside any warning band
 - **THEN** its row shows a pass glyph, pass text, and pass colouring
 
 #### Scenario: Colour removed
 
 - **WHEN** the report is rendered without colour information
-- **THEN** pass and fail rows remain distinguishable by glyph and text alone
+- **THEN** passing, warning, and failing rows remain mutually distinguishable by glyph and text alone
 
 ### Requirement: Read-Only Operation
 
