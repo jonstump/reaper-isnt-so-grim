@@ -33,9 +33,15 @@ governance. `CLAUDE.md` is the authoritative reference; the key points for agent
 - **`ADR-0004`** fixes the measurement architecture: stock Reaper `CalculateNormalization`,
   two-pass noise-floor determination, `gfx` report surface, sample peak as the pass/fail
   figure (true peak advisory only).
-- **`ADR-0005` clean-room rule**: never read Audacity's source (or GPL tooling built on
-  it, e.g. `audacity-project-tools`). The `.aup3` format is derived only from inspecting
-  real files and public prose. Every non-obvious format fact carries a provenance note.
+- **`ADR-0005` clean-room rule**: never read Audacity's source, for any purpose — that
+  includes the Nyquist scripts bundled inside `Audacity.app`, such as `ACX-Check.ny`. The
+  rule is project-wide, not just `.aup3`. Anything derived from Audacity comes from four
+  permitted sources: inspecting files Audacity produced, public prose, permissively-licensed
+  third-party implementations (`audacity-project-tools` is BSD-3-Clause, so it *is* readable
+  — verify licence and dependency manifest first, and attribute anything taken), and
+  observed behaviour recorded as input/output pairs. Every non-obvious derived fact carries
+  a provenance note: `.aup3` facts in `importer/FORMAT.md`, behavioural facts beside the
+  capability that needed them.
 - **Governing comments**: source files carry `-- Governing: SPEC-0001 REQ "..."` /
   `-- Governing: ADR-0004` header comments tracing implementation to artifacts. Keep
   these accurate when you change code.
