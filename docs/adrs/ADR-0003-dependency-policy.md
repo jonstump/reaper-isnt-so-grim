@@ -41,6 +41,18 @@ Chosen because nothing has demanded more, and the moment to set a ceiling is bef
 * **Permitted:** stock Reaper (6.44 or newer, per ADR-0004's use of `CalculateNormalization`, which first appears in v6.44), its bundled ReaPlugs and JSFX, its native actions, `gfx`, and ReaPack as the script delivery channel.
 * **Not permitted without a new ADR:** SWS, ReaImGui, js_ReaScriptAPI, third-party themes, third-party plugins of any kind.
 
+**The ceiling governs what the kit ships and requires — not what the user already owns.** (Added 2026-08-16.) This distinction was missing, and its absence made the policy read as forbidding something it has no business forbidding.
+
+The narrator's ACX macro opens with iZotope RX 9 Mouth De-click, which he describes as a necessity rather than a preference. His reference material shows RX 9 installed system-wide as both Audio Units and VST, in `/Library/Audio/Plug-Ins/`, which Reaper scans by default — so seven RX 9 modules will appear in Reaper the first time he opens it, with no work from us and no involvement from this kit. He has confirmed he intends to stay on RX 9, so an FX chain naming it will not rot.
+
+Nothing about that touches this ceiling. We are not shipping RX 9, requiring it, or adding an install step; it is his licence, on his machine, already there. A policy that said otherwise would be claiming authority over the user's own plugin folder, which is not what a dependency ceiling is for.
+
+The rule that follows:
+
+* **A shipped artifact MUST work on stock Reaper plus ReaPack alone.** The base ACX chain is stock-only, so it is shareable with the wider Reaper community — which is the whole point of writing it well.
+* **A personal overlay MAY reference plugins the user owns.** Per [ADR-0006](ADR-0006-personalization-base-profile-and-overlays.md), overlays are deviations composed at build time into a personalized artifact alongside the public one. RX 9 belongs there. It is the first concrete overlay case the project has found, and it is exactly the shape ADR-0006 anticipated.
+* **An overlay MUST NOT be a route around this ceiling.** The test is whether the *public* artifact still stands alone. If a capability only works because an overlay supplied a plugin, that capability belongs in the base and needs a new ADR — not an overlay.
+
 Adding one later is not forbidden — it costs one ADR. That is deliberately cheap, because the goal is not to prevent dependencies but to prevent *unargued* ones. A decision that has to be written down is a decision someone has weighed.
 
 **Optional dependencies are rejected explicitly, not merely unchosen.** "Works without SWS, better with it" is the option that sounds safest and is actually worst here: it doubles the test surface, creates two support matrices, and means the first bug report arrives from an environment we did not know he was in. For a kit with one user and no telemetry, a feature must either require a thing or not use it.
