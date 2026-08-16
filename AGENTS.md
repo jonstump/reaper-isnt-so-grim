@@ -29,7 +29,10 @@ governance. `CLAUDE.md` is the authoritative reference; the key points for agent
 - **`ADR-0003` is the dependency ceiling**: shipped runtime code may use **stock Reaper
   (6.44+) plus ReaPack only** — no SWS, no ReaImGui, no js_ReaScriptAPI, no third-party
   plugins. Adding one requires a new ADR. Development tooling is unconstrained, with one
-  boundary: **a development dependency may never be imported by shipped code**.
+  boundary: **a development dependency may never be imported by shipped code**. The ceiling
+  governs what the kit *ships and requires*, not what the user already owns: a personal
+  overlay (ADR-0006) may reference plugins on the user's own machine — iZotope RX 9 is the
+  live case — provided the public artifact still stands alone without them.
 - **`ADR-0004`** fixes the measurement architecture: stock Reaper `CalculateNormalization`,
   two-pass noise-floor determination, `gfx` report surface, sample peak as the pass/fail
   figure (true peak advisory only).
