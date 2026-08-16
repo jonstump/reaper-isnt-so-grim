@@ -54,6 +54,18 @@ This is chosen over SWS primarily because **the DSP is Reaper's either way**. Th
 
 ACX specifies −3 dB and Audacity's ACX Check reports **sample peak**. Reporting true peak would be more technically correct and would sometimes disagree with the tool he trusts — turning a correctness improvement into a support burden. The headline number matches Audacity; true peak appears as a secondary advisory line when the two diverge meaningfully.
 
+Verified 2026-08-16: our sample peak on `D1.wav` matches Audacity's to the digit (−14.92). This convention choice was the right one.
+
+**Peak also has a lower bound, which this ADR missed.** (Added 2026-08-16.) His failing screenshot reads:
+
+> Peak level: −14.92 dB **Warning** (too low - may be overly compressed or too quiet.)
+
+Two things follow. Audacity's ACX Check has **three** states — Pass, Warning, Fail — where this ADR and SPEC-0001 model two. And peak is not a ceiling-only test: a peak that is *too low* earns a warning, because it signals over-compression or an under-recorded take. ACX itself specifies −3 dB as a maximum, so the lower bound is Audacity's own editorial judgement rather than a delivery requirement — which is precisely why it must be matched. He reads that warning today, and a tool that silently drops it looks less careful than the one he is leaving.
+
+The distinction is worth preserving in the report rather than collapsing: **Fail means the file will be rejected; Warning means a human should look.** Flattening a warning into a pass hides a real signal, and flattening it into a failure would tell him a deliverable file is broken. Both are worse than carrying the third state.
+
+The exact lower threshold Audacity warns at is not yet known — one observation at −14.92 gives a point, not a boundary — and is to be recovered by the same controlled-observation route as the RMS convention.
+
 ### Noise floor: coarse scan, precise measure, manual override
 
 Two passes:
@@ -67,7 +79,9 @@ If a time selection exists when the script runs, it is used directly and the sca
 
 ### Report: `gfx` window
 
-Reaper's built-in immediate-mode graphics, stock on every platform. Colour carries pass/fail pre-attentively — he sees red before he reads a number — which matters more for an intimidated user than for a developer. Layout follows `PLAN.md`'s mockup: measured value, allowed range, delta, plain-English hint, one row per measurement.
+Reaper's built-in immediate-mode graphics, stock on every platform. Colour carries status pre-attentively — he sees red before he reads a number — which matters more for an intimidated user than for a developer. Layout follows `PLAN.md`'s mockup: measured value, allowed range, delta, plain-English hint, one row per measurement.
+
+A row has **three** states, not two — pass, warning, fail — per the peak finding above. That has consequences beyond an extra colour: SPEC-0001 REQ "Status Indication Without Reliance on Colour" currently specifies a glyph and text per state for two states, and needs a third that is visually distinct from both without reading as either. It also means `evaluate.lua` returns a tri-state rather than a boolean, and `report.lua` draws a third style. Recorded here as a consequence of the decision; the spec change and the implementation are separate work.
 
 The gain hint must compute the peak consequence before suggesting anything: if raising RMS by the needed amount would push peaks past −3 dBFS, the hint says so and points at compression or limiting instead of gain. This is the classic ACX tug-of-war and getting it wrong would make the tool confidently misleading.
 
@@ -88,6 +102,18 @@ The gain hint must compute the peak consequence before suggesting anything: if r
 
 * **Reference-signal spike, before any other work.** Synthesize tones at known levels (a −20 dBFS RMS sine, a −3 dBFS peak) and confirm the inversion recovers them within tolerance. If this fails, the measurement decision is wrong and the ADR is revisited before code is built on it.
 * **Agreement with Audacity on his real material.** The reference request merged in [PR #1](https://github.com/jonstump/reaper-isnt-so-grim/pull/1) asks for exactly the assets this needs: item A3 (his ACX Check output, passing and failing) and items D1/D3 (raw narration with room tone at the head, plus the MP3 it produced). Running our check on D1/D3 and comparing to A3 is the acceptance test that matters. **Disagreement on any of the three numbers blocks release**, whichever tool turns out to be right.
+
+  **The material arrived on 2026-08-16, and the gate is already failing.** His two ACX Check screenshots give the reference values:
+
+  | | Peak | RMS | Noise floor |
+  |---|---|---|---|
+  | Audacity, passing file | −4.50 Pass | −22.92 Pass | −80.86 Pass |
+  | Audacity, `D1.wav` | −14.92 **Warning** | −33.36 **Fail** | −62.02 Pass |
+  | Ours, computed directly from `D1.wav` | **−14.92** | −34.13 | −67.88 |
+
+  Sample peak agrees **exactly**, which is the single most important result here: ADR-0004's peak convention, chosen to match Audacity rather than to be technically pure, is correct. RMS is **0.77 dB** apart and noise floor **5.86 dB**. Both exceed the 0.5 dB tolerance, so this is a release blocker per SPEC-0001 REQ "Measurement Validation" — firing exactly as designed, and firing *before* Reaper is involved, since our figure here is direct arithmetic rather than `CalculateNormalization` output. It is a disagreement about convention, not a bug in our code.
+
+  Windowing and sine-reference hypotheses were tested against the file and none close the gap. The convention is to be recovered by controlled observation per [ADR-0005](ADR-0005-license-and-clean-room.md)'s fourth permitted source — feeding Audacity signals of known level and recording what it reports. Reading `ACX-Check.ny`, which ships inside `Audacity.app` and would answer this directly, remains forbidden.
 * **Noise-floor auto-pick is validated against D1 specifically**, since it is the only sample with known-genuine room tone at a known position.
 * **Performance gate**: a full chapter-length file completes in a couple of seconds, not minutes.
 * **The tug-of-war hint is tested against a deliberately constructed case** — audio quiet enough to fail RMS whose peaks are already near −3 — and must recommend dynamics processing rather than gain.
